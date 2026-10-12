@@ -1,18 +1,62 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, XCircle, Download, Share2 } from "lucide-react";
-import { toast } from "sonner";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { motion } from "framer-motion";
+import {
+  Download,
+  ExternalLink,
+  Github,
+  Globe,
+  CheckCircle2,
+  XCircle,
+  Gauge,
+  GitBranch,
+  Gavel,
+  Info,
+  Lightbulb,
+  ListChecks,
+  MessagesSquare,
+  Sparkles,
+  ThumbsUp,
+  ThumbsDown,
+  TrendingUp,
+  Check,
+  Copy,
+} from "lucide-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  LineChart,
+  Line,
+  CartesianGrid,
+} from "recharts";
+import { Accordion } from "@radix-ui/react-accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
+import { ReportSection } from "@/components/report/ReportSection";
 import { report } from "@/lib/mock-data";
+import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
     meta: [
       { title: "Technical Report — BuildLens" },
-      { name: "description", content: "Scores, verified features, strengths, weaknesses and questions for the evaluated project." },
+      {
+        name: "description",
+        content:
+          "Scores, verified features, strengths, weaknesses and questions for the evaluated project.",
+      },
       { property: "og:title", content: "Technical Report — BuildLens" },
       { property: "og:description", content: "An evidence-based technical evaluation report." },
     ],
@@ -20,51 +64,534 @@ export const Route = createFileRoute("/report")({
   component: Report,
 });
 
-function List({ items }: { items: string[] }) {
-  return <ul className="space-y-2">{items.map((i) => <li key={i} className="flex gap-2 text-sm text-muted-foreground"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />{i}</li>)}</ul>;
+const listIcon = "mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary";
+
+function BulletList({ items, icon }: { items: string[]; icon?: "check" | "cross" }) {
+  return (
+    <ul className="space-y-2.5">
+      {items.map((i, k) => (
+        <motion.li
+          key={i}
+          initial={{ opacity: 0, x: -4 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: k * 0.04 }}
+          className="flex gap-2.5 text-sm text-muted-foreground"
+        >
+          {icon === "check" ? (
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+          ) : icon === "cross" ? (
+            <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          ) : (
+            <span className={listIcon} />
+          )}
+          {i}
+        </motion.li>
+      ))}
+    </ul>
+  );
 }
 
 function Report() {
+  const repo = report.repositoryDetail;
+  const web = report.websiteDetail;
+  const inn = report.innovation;
+
+  const copyLink = () => {
+    notify.copied("report link");
+  };
+
+  const exportReport = () => {
+    notify.promise(new Promise((res) => setTimeout(res, 1200)), {
+      loading: "Preparing PDF export…",
+      success: "Export ready — check downloads",
+      error: "Export failed",
+    });
+  };
+
   return (
     <AppLayout
       title={report.project}
       subtitle={`${report.repo} · Generated ${report.generated}`}
+      crumbs={[{ label: "Reports", to: "/reports" }, { label: "Atlas — Climate Risk Dashboard" }]}
       actions={
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => toast.success("Share link copied")}><Share2 className="h-4 w-4" /> Share</Button>
-          <Button size="sm" onClick={() => toast.success("Export started")}><Download className="h-4 w-4" /> Export</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={copyLink}>
+            <Copy className="h-4 w-4" /> Copy link
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => notify.copied("share link")}>
+            <ExternalLink className="h-4 w-4" /> Share
+          </Button>
+          <Button size="sm" onClick={exportReport}>
+            <Download className="h-4 w-4" /> Export
+          </Button>
         </div>
       }
     >
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="surface flex items-center gap-6 p-6"><ScoreRing value={report.overall} label="/ 100" /><div><p className="text-sm text-muted-foreground">Overall Score</p><p className="mt-1 text-lg font-semibold">Strong submission</p></div></div>
-        <div className="surface flex items-center gap-6 p-6"><ScoreRing value={report.evidence} label="/ 100" /><div><p className="text-sm text-muted-foreground">Evidence Score</p><p className="mt-1 text-lg font-semibold">3 of 4 claims verified</p></div></div>
-        <div className="surface space-y-4 p-6">
-          {report.metrics.map((m) => (
-            <div key={m.label}><div className="mb-1.5 flex justify-between text-sm"><span>{m.label}</span><span className={`font-mono ${scoreTone(m.score)}`}>{m.score}</span></div><Progress value={m.score} className="h-1.5" /></div>
-          ))}
+      <div className="space-y-5">
+        {/* Hero score cards */}
+        <div className="grid gap-5 lg:grid-cols-3">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="surface flex items-center gap-6 p-6"
+          >
+            <ScoreRing value={report.overall} label="/ 100" />
+            <div>
+              <p className="text-sm text-muted-foreground">Overall Score</p>
+              <p className="mt-1 text-lg font-semibold">Strong submission</p>
+              <Badge
+                variant="outline"
+                className="mt-2 border-success/30 bg-success/10 text-success"
+              >
+                <TrendingUp className="mr-1 h-3 w-3" /> +4 vs cohort avg
+              </Badge>
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.06 }}
+            className="surface flex items-center gap-6 p-6"
+          >
+            <ScoreRing value={report.evidence} label="/ 100" />
+            <div>
+              <p className="text-sm text-muted-foreground">Evidence Score</p>
+              <p className="mt-1 text-lg font-semibold">3 of 4 claims verified</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                1 claim unverified — see Claim Verification below
+              </p>
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="surface space-y-4 p-6"
+          >
+            {report.metrics.map((m) => (
+              <div key={m.label}>
+                <div className="mb-1.5 flex justify-between text-sm">
+                  <span>{m.label}</span>
+                  <span className={`font-mono ${scoreTone(m.score)}`}>{m.score}</span>
+                </div>
+                <Progress value={m.score} className="h-1.5" />
+              </div>
+            ))}
+          </motion.div>
         </div>
-      </div>
 
-      <Accordion type="multiple" defaultValue={["metrics", "features"]} className="surface mt-5 px-6">
-        <AccordionItem value="metrics">
-          <AccordionTrigger>Score breakdown</AccordionTrigger>
-          <AccordionContent><div className="grid gap-3 sm:grid-cols-2">{report.metrics.map((m) => <div key={m.label} className="rounded-lg bg-muted/50 p-4"><div className="flex justify-between"><span className="font-medium">{m.label}</span><span className={`font-mono ${scoreTone(m.score)}`}>{m.score}</span></div><p className="mt-1 text-sm text-muted-foreground">{m.note}</p></div>)}</div></AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="features">
-          <AccordionTrigger>Feature Verification</AccordionTrigger>
-          <AccordionContent><ul className="space-y-3">{report.features.map((f) => <li key={f.claim} className="flex gap-3">{f.verified ? <CheckCircle2 className="h-5 w-5 shrink-0 text-success" /> : <XCircle className="h-5 w-5 shrink-0 text-destructive" />}<div><p className="font-medium">{f.claim}</p><p className="text-sm text-muted-foreground">{f.evidence}</p></div></li>)}</ul></AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="strengths"><AccordionTrigger>Strengths</AccordionTrigger><AccordionContent><List items={report.strengths} /></AccordionContent></AccordionItem>
-        <AccordionItem value="weaknesses"><AccordionTrigger>Weaknesses</AccordionTrigger><AccordionContent><List items={report.weaknesses} /></AccordionContent></AccordionItem>
-        <AccordionItem value="improvements"><AccordionTrigger>Suggested Improvements</AccordionTrigger><AccordionContent><List items={report.improvements} /></AccordionContent></AccordionItem>
-        <AccordionItem value="interview"><AccordionTrigger>Interview Questions</AccordionTrigger><AccordionContent><List items={report.interviewQuestions} /></AccordionContent></AccordionItem>
-        <AccordionItem value="judge"><AccordionTrigger>Judge Questions</AccordionTrigger><AccordionContent><List items={report.judgeQuestions} /></AccordionContent></AccordionItem>
-        <AccordionItem value="timeline" className="border-b-0">
-          <AccordionTrigger>Timeline</AccordionTrigger>
-          <AccordionContent><ol className="relative ml-2 space-y-4 border-l border-border pl-6">{report.timeline.map((t) => <li key={t.time} className="relative"><span className="absolute -left-[29px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" /><p className="font-mono text-xs text-muted-foreground">{t.time}</p><p className="text-sm">{t.event}</p></li>)}</ol></AccordionContent>
-        </AccordionItem>
-      </Accordion>
+        {/* Collapsible sections */}
+        <Accordion
+          type="multiple"
+          defaultValue={["overview", "repo", "website", "performance"]}
+          className="surface px-6"
+        >
+          <ReportSection
+            value="overview"
+            title="Overview"
+            icon={<Info className="h-4 w-4" />}
+            defaultOpen
+          >
+            <p className="text-sm text-muted-foreground">{report.overview.summary}</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Highlights
+                </p>
+                <BulletList items={report.overview.highlights} icon="check" />
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Tech stack
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {report.overview.techStack.map((t) => (
+                    <Badge key={t} variant="secondary" className="text-xs">
+                      {t}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </ReportSection>
+
+          <ReportSection
+            value="repo"
+            title="Repository"
+            icon={<Github className="h-4 w-4" />}
+            count={repo.contributors}
+          >
+            <a
+              href={report.repoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            >
+              {report.repo} <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
+              {[
+                { label: "Stars", value: repo.stars },
+                { label: "Forks", value: repo.forks },
+                { label: "Commits", value: repo.commits },
+                { label: "Contributors", value: repo.contributors },
+                { label: "Open issues", value: repo.openIssues },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg bg-muted/50 px-3 py-2.5 text-center">
+                  <p className="text-lg font-semibold tabular-nums">{s.value}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 grid gap-6 lg:grid-cols-2">
+              <div>
+                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Language mix
+                </p>
+                <div className="flex h-2.5 overflow-hidden rounded-full">
+                  {repo.languages.map((l) => (
+                    <div
+                      key={l.name}
+                      style={{
+                        width: `${l.pct}%`,
+                        background: `hsl(${(l.name.length * 60) % 360} 70% 55%)`,
+                      }}
+                      title={`${l.name} ${l.pct}%`}
+                    />
+                  ))}
+                </div>
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  {repo.languages.map((l) => (
+                    <li key={l.name} className="flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: `hsl(${(l.name.length * 60) % 360} 70% 55%)` }}
+                      />
+                      {l.name} · {l.pct}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Commit activity
+                </p>
+                <ResponsiveContainer width="100%" height={140}>
+                  <BarChart
+                    data={repo.commitActivity}
+                    margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                  >
+                    <XAxis dataKey="day" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={11} tickLine={false} axisLine={false} width={24} />
+                    <RechartsTooltip
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="commits" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <ul className="mt-4 space-y-2">
+              {repo.codeQualityNotes.map((n) => (
+                <li key={n} className="flex gap-2 text-sm text-muted-foreground">
+                  <Check className="mt-0.5 h-4 w-4 text-success" /> {n}
+                </li>
+              ))}
+            </ul>
+          </ReportSection>
+
+          <ReportSection value="website" title="Website" icon={<Globe className="h-4 w-4" />}>
+            <a
+              href={report.websiteUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            >
+              {report.websiteUrl} <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            <Badge variant="outline" className="ml-3 border-success/30 bg-success/10 text-success">
+              {web.status}
+            </Badge>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {Object.entries(web.lighthouse).map(([k, v]: [string, number]) => (
+                <div key={k} className="rounded-lg border border-border bg-muted/30 p-4">
+                  <p className="text-xs capitalize text-muted-foreground">{k}</p>
+                  <p className={`mt-1 text-2xl font-semibold tabular-nums ${scoreTone(v)}`}>{v}</p>
+                  <Progress value={v} className="mt-2 h-1" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-6 text-sm text-muted-foreground">
+              <span>
+                LCP{" "}
+                <strong className="text-foreground">
+                  {web.vitals[0]?.value}
+                  {web.vitals[0]?.unit}
+                </strong>
+              </span>
+              <span>
+                INP{" "}
+                <strong className="text-foreground">
+                  {web.vitals[1]?.value}
+                  {web.vitals[1]?.unit}
+                </strong>
+              </span>
+              <span>
+                CLS <strong className="text-foreground">{web.vitals[2]?.value}</strong>
+              </span>
+              <span>
+                Page weight <strong className="text-foreground">{web.pageWeightMb} MB</strong>
+              </span>
+            </div>
+          </ReportSection>
+
+          <ReportSection
+            value="performance"
+            title="Performance"
+            icon={<Gauge className="h-4 w-4" />}
+          >
+            <p className="text-sm text-muted-foreground">
+              Core Web Vitals against Google's thresholds. All three pass on the deployed build.
+            </p>
+            <div className="mt-4">
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={web.vitals} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeOpacity={0.15} vertical={false} />
+                  <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis fontSize={11} tickLine={false} axisLine={false} width={36} />
+                  <RechartsTooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="threshold"
+                    stroke="var(--muted-foreground)"
+                    strokeDasharray="4 4"
+                    dot={false}
+                    name="Threshold"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="var(--primary)"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    name="Measured"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </ReportSection>
+
+          <ReportSection
+            value="claims"
+            title="Claim Verification"
+            icon={<ListChecks className="h-4 w-4" />}
+            count={report.features.length}
+            tone="warning"
+          >
+            <ul className="space-y-4">
+              {report.features.map((f, i) => (
+                <motion.li
+                  key={f.claim}
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex gap-3"
+                >
+                  {f.verified ? (
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+                  ) : (
+                    <XCircle className="h-5 w-5 shrink-0 text-destructive" />
+                  )}
+                  <div>
+                    <p className="font-medium">{f.claim}</p>
+                    <p className="text-sm text-muted-foreground">{f.evidence}</p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`ml-auto self-start ${f.verified ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
+                  >
+                    {f.verified ? "Verified" : "Unverified"}
+                  </Badge>
+                </motion.li>
+              ))}
+            </ul>
+          </ReportSection>
+
+          <ReportSection
+            value="innovation"
+            title="Innovation"
+            icon={<Sparkles className="h-4 w-4" />}
+            tone="success"
+          >
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-4xl font-semibold tabular-nums ${scoreTone(inn.score)}`}>
+                    {inn.score}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ 100</span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{inn.summary}</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  <strong className="text-foreground">Closest analogue:</strong> {inn.comparable}
+                </p>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <RadarChart
+                  data={[
+                    { axis: "Novelty", value: 92 },
+                    { axis: "Impact", value: 78 },
+                    { axis: "Technical depth", value: 90 },
+                    { axis: "Reproducibility", value: 84 },
+                    { axis: "Scalability", value: 76 },
+                  ]}
+                >
+                  <PolarGrid strokeOpacity={0.2} />
+                  <PolarAngleAxis dataKey="axis" fontSize={11} />
+                  <PolarRadiusAxis domain={[0, 100]} fontSize={10} tick={false} />
+                  <Radar
+                    dataKey="value"
+                    stroke="var(--primary)"
+                    fill="var(--primary)"
+                    fillOpacity={0.28}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+            <Separator className="my-4" />
+            <ul className="space-y-2">
+              {inn.markers.map((m) => (
+                <li key={m.label} className="text-sm text-muted-foreground">
+                  <strong className="text-foreground">{m.label}:</strong> {m.detail}
+                </li>
+              ))}
+            </ul>
+          </ReportSection>
+
+          <ReportSection
+            value="strengths"
+            title="Strengths"
+            icon={<ThumbsUp className="h-4 w-4" />}
+            count={report.strengths.length}
+            tone="success"
+          >
+            <BulletList items={report.strengths} icon="check" />
+          </ReportSection>
+
+          <ReportSection
+            value="weaknesses"
+            title="Weaknesses"
+            icon={<ThumbsDown className="h-4 w-4" />}
+            count={report.weaknesses.length}
+            tone="destructive"
+          >
+            <BulletList items={report.weaknesses} icon="cross" />
+          </ReportSection>
+
+          <ReportSection
+            value="improvements"
+            title="Suggestions"
+            icon={<Lightbulb className="h-4 w-4" />}
+            count={report.improvements.length}
+            tone="warning"
+          >
+            <BulletList items={report.improvements} />
+          </ReportSection>
+
+          <ReportSection
+            value="interview"
+            title="Interview Questions"
+            icon={<MessagesSquare className="h-4 w-4" />}
+            count={report.interviewQuestions.length}
+            defaultOpen
+          >
+            <ol className="space-y-3">
+              {report.interviewQuestions.map((q, i) => (
+                <motion.li
+                  key={q}
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="flex gap-3 text-sm"
+                >
+                  <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
+                    {i + 1}
+                  </span>
+                  <span className="text-muted-foreground">{q}</span>
+                </motion.li>
+              ))}
+            </ol>
+          </ReportSection>
+
+          <ReportSection
+            value="judge"
+            title="Judge Questions"
+            icon={<Gavel className="h-4 w-4" />}
+            count={report.judgeQuestions.length}
+            defaultOpen
+          >
+            <ol className="space-y-3">
+              {report.judgeQuestions.map((q, i) => (
+                <motion.li
+                  key={q}
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="flex gap-3 text-sm"
+                >
+                  <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
+                    {i + 1}
+                  </span>
+                  <span className="text-muted-foreground">{q}</span>
+                </motion.li>
+              ))}
+            </ol>
+          </ReportSection>
+
+          <ReportSection
+            value="timeline"
+            title="Timeline"
+            icon={<GitBranch className="h-4 w-4" />}
+            className="[&>ol]:border-l-0"
+          >
+            <ol className="relative ml-2 space-y-4 border-l border-border pl-6">
+              {report.timeline.map((t, i) => (
+                <motion.li
+                  key={t.time}
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="relative"
+                >
+                  <span className="absolute -left-[29px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
+                  <p className="font-mono text-xs text-muted-foreground">{t.time}</p>
+                  <p className="text-sm">{t.event}</p>
+                </motion.li>
+              ))}
+            </ol>
+          </ReportSection>
+        </Accordion>
+      </div>
     </AppLayout>
   );
 }

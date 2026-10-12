@@ -1,21 +1,59 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FileX2, Plus, Search } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  EllipsisVertical,
+  ExternalLink,
+  FileX2,
+  FolderGit2,
+  Plus,
+  Search,
+  UserSearch,
+  Copy,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { EmptyState } from "@/components/state/EmptyState";
+import { ErrorState } from "@/components/state/ErrorState";
 import { scoreTone } from "@/components/ScoreRing";
-import { reports, type ReportStatus } from "@/lib/mock-data";
+import { reports, type ReportStatus, type ReportRow } from "@/lib/mock-data";
+import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
     meta: [
       { title: "Report History — BuildLens" },
-      { name: "description", content: "Search and filter all previous project and developer reports." },
+      {
+        name: "description",
+        content: "Search and filter all previous project and developer reports.",
+      },
       { property: "og:title", content: "Report History — BuildLens" },
       { property: "og:description", content: "All your previous BuildLens reports." },
     ],
@@ -29,61 +67,314 @@ const statusClass: Record<ReportStatus, string> = {
   Failed: "border-destructive/30 bg-destructive/10 text-destructive",
 };
 
+function rowActions(r: ReportRow, onDelete: () => void) {
+  return [
+    {
+      label: "Open report",
+      icon: ExternalLink,
+      onClick: () => notify.info("Opening report", `${r.name} — full report view.`),
+    },
+    { label: "Copy share link", icon: Copy, onClick: () => notify.copied("share link") },
+    ...(r.status !== "In Progress"
+      ? [
+          {
+            label: "Delete report",
+            icon: Trash2,
+            onClick: () => {
+              onDelete();
+              notify.undoable("Report deleted", `${r.name} removed from history.`, () =>
+                notify.success("Restore isn't available in demo", "This would call the API."),
+              );
+            },
+          },
+        ]
+      : []),
+  ] as { label: string; icon: typeof Copy; onClick: () => void }[];
+}
+
 function Reports() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 700); return () => clearTimeout(t); }, []);
-  const rows = useMemo(() => reports.filter((r) =>
-    r.name.toLowerCase().includes(q.toLowerCase()) && (type === "all" || r.type === type) && (status === "all" || r.status === status)
-  ), [q, type, status]);
+
+  useEffect(() => {
+    const f = Math.random() < 0.12;
+    const t = setTimeout(() => {
+      setLoading(false);
+      setFailed(f);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [hidden]);
+
+  const rows = useMemo(
+    () => (hidden.size === 0 ? reports : reports.filter((r) => !hidden.has(r.id))),
+    [hidden],
+  );
+  const visible = rows.filter(
+    (r) =>
+      r.name.toLowerCase().includes(q.toLowerCase()) &&
+      (type === "all" || r.type === type) &&
+      (status === "all" || r.status === status),
+  );
+
+  const counts = {
+    all: rows.length,
+    Project: rows.filter((r) => r.type === "Project").length,
+    Developer: rows.filter((r) => r.type === "Developer").length,
+  } as const;
+
+  const openRow = (r: ReportRow) => navigate({ to: "/report" });
 
   return (
-    <AppLayout title="Report History" subtitle="Every evaluation, in one place." actions={<Button asChild><Link to="/dashboard"><Plus className="h-4 w-4" /> New review</Link></Button>}>
+    <AppLayout
+      title="Report History"
+      subtitle="Every evaluation, in one place."
+      crumbs={[{ label: "Reports" }]}
+      actions={
+        <Button asChild>
+          <Link to="/dashboard">
+            <Plus className="h-4 w-4" /> New review
+          </Link>
+        </Button>
+      }
+    >
+      {/* Summary chips */}
+      <div className="mb-5 flex flex-wrap gap-2">
+        {(["all", "Project", "Developer"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => {
+              setType(t);
+              setStatus("all");
+            }}
+            aria-pressed={type === t}
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:border-primary/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
+          >
+            {t === "Project" && <FolderGit2 className="h-3.5 w-3.5" />}
+            {t === "Developer" && <UserSearch className="h-3.5 w-3.5" />}
+            {t === "all" ? "All types" : t}
+            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{counts[t]}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search reports…" className="pl-9" aria-label="Search reports" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search reports…"
+            className="pl-9"
+            aria-label="Search reports"
+          />
         </div>
         <Select value={type} onValueChange={setType}>
-          <SelectTrigger className="sm:w-40" aria-label="Filter by type"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All types</SelectItem><SelectItem value="Project">Project</SelectItem><SelectItem value="Developer">Developer</SelectItem></SelectContent>
+          <SelectTrigger className="sm:w-40" aria-label="Filter by type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="Project">Project</SelectItem>
+            <SelectItem value="Developer">Developer</SelectItem>
+          </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="sm:w-40" aria-label="Filter by status"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="In Progress">In Progress</SelectItem><SelectItem value="Failed">Failed</SelectItem></SelectContent>
+          <SelectTrigger className="sm:w-40" aria-label="Filter by status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
+            <SelectItem value="In Progress">In Progress</SelectItem>
+            <SelectItem value="Failed">Failed</SelectItem>
+          </SelectContent>
         </Select>
       </div>
-      <div className="surface overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader><TableRow><TableHead>Project</TableHead><TableHead>Type</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Score</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {loading ? Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>{Array.from({ length: 5 }).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full max-w-32" /></TableCell>)}</TableRow>
-              )) : rows.map((r) => (
-                <TableRow key={r.id} tabIndex={0} className="cursor-pointer" onClick={() => navigate({ to: "/report" })} onKeyDown={(e) => e.key === "Enter" && navigate({ to: "/report" })}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.type}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.date}</TableCell>
-                  <TableCell><Badge variant="outline" className={statusClass[r.status]}>{r.status}</Badge></TableCell>
-                  <TableCell className={`text-right font-mono ${r.score ? scoreTone(r.score) : "text-muted-foreground"}`}>{r.score ?? "—"}</TableCell>
-                </TableRow>
+
+      {failed ? (
+        <ErrorState
+          title="Couldn't load report history"
+          onRetry={() => {
+            setFailed(false);
+            setLoading(true);
+            setTimeout(() => setLoading(false), 700);
+          }}
+        />
+      ) : (
+        <div className="surface overflow-hidden">
+          {loading ? (
+            <div className="px-4 py-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-4 border-b border-border/60 py-4 last:border-0"
+                >
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <Skeleton className="h-4 w-44 flex-1" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : visible.length === 0 ? (
+            <EmptyState
+              className="surface"
+              icon={<FileX2 />}
+              title={
+                q || type !== "all" || status !== "all" ? "No reports found" : "No reports yet"
+              }
+              description={
+                q || type !== "all" || status !== "all"
+                  ? "Try a different search term or clear the filters to see everything."
+                  : "Start a project or developer review to see it here."
+              }
+              action={
+                q || type !== "all" || status !== "all" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setQ("");
+                      setType("all");
+                      setStatus("all");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/dashboard">Create a review</Link>
+                  </Button>
+                )
+              }
+            />
+          ) : (
+            <>
+              {/* Mobile list */}
+              <ul className="divide-y divide-border/60 md:hidden">
+                {visible.map((r, i) => (
+                  <motion.li
+                    key={r.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openRow(r)}
+                      className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    >
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted">
+                        {r.type === "Project" ? (
+                          <FolderGit2 className="h-4 w-4" />
+                        ) : (
+                          <UserSearch className="h-4 w-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{r.name}</p>
+                        <p className="text-xs text-muted-foreground">{r.date}</p>
+                      </div>
+                      <Badge variant="outline" className={statusClass[r.status]}>
+                        {r.status}
+                      </Badge>
+                    </button>
+                  </motion.li>
+                ))}
+              </ul>
+
+              {/* Desktop table */}
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Score</TableHead>
+                      <TableHead className="w-10">
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visible.map((r, i) => (
+                      <motion.tr
+                        key={r.id}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        tabIndex={0}
+                        role="link"
+                        onClick={() => openRow(r)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") openRow(r);
+                        }}
+                        className="cursor-pointer outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        aria-label={`Open report for ${r.name}`}
+                      >
+                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{r.type}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {r.date}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={statusClass[r.status]}>
+                            {r.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell
+                          className={`text-right font-mono ${r.score ? scoreTone(r.score) : "text-muted-foreground"}`}
+                        >
+                          {r.score ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Actions for ${r.name}`}
+                                className="h-8 w-8"
+                              >
+                                <EllipsisVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-48"
+                            >
+                              <DropdownMenuLabel>{r.name}</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              {rowActions(r, () => setHidden((h) => new Set(h).add(r.id))).map(
+                                (a) => (
+                                  <DropdownMenuItem key={a.label} onClick={() => a.onClick()}>
+                                    <a.icon className="mr-2 h-4 w-4" /> {a.label}
+                                  </DropdownMenuItem>
+                                ),
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </motion.tr>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </div>
-        {!loading && rows.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-16 text-center">
-            <FileX2 className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">No reports found</p>
-            <p className="text-sm text-muted-foreground">Try a different search or filter.</p>
-            <Button variant="outline" size="sm" className="mt-2" onClick={() => { setQ(""); setType("all"); setStatus("all"); }}>Clear filters</Button>
-          </div>
-        )}
-      </div>
+      )}
     </AppLayout>
   );
 }

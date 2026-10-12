@@ -1,79 +1,219 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { ArrowRight, FileSearch, GitBranch, Gauge, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { MarketingLayout } from "@/components/layout/MarketingLayout";
+import { useEffect, useRef, useState } from "react";
+import "@/components/marketing/cinematic.css";
+
+const VIDEO_URL =
+  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260806_133255_956f653f-5d80-4b06-abd5-0f46c98b60fa.mp4";
+const POSTER_URL =
+  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260806_132328_5f9029c8-218f-4489-82b6-29ff2849920e.png";
+
+const NAV = [
+  { label: "Features", href: "#features", i: 0 },
+  { label: "Solutions", href: "#solutions", i: 1 },
+  { label: "Documentation", href: "#documentation", i: 2 },
+  { label: "About", href: "#about", i: 3 },
+] as const;
+
+function useMobileMenu() {
+  const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  // Escape closes, body locks while open, focus returns to the toggle on close
+  useEffect(() => {
+    if (!open) return;
+    wasOpen.current = true;
+    const toggle = toggleRef.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.classList.add("menu-open");
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.classList.remove("menu-open");
+      if (wasOpen.current) {
+        wasOpen.current = false;
+        toggle?.focus();
+      }
+    };
+  }, [open]);
+
+  // auto-close at ≥901px
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 901px)");
+    const on = () => open && setOpen(false);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [open, setOpen]);
+
+  return { open, setOpen, toggleRef };
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "BuildLens — Evidence-Based Technical Evaluation" },
-      { name: "description", content: "Analyze projects, verify claims and generate structured technical reports for hackathons, hiring and portfolio reviews." },
-      { property: "og:title", content: "BuildLens — Evidence-Based Technical Evaluation" },
-      { property: "og:description", content: "Structured, evidence-backed technical reports for judges, recruiters and mentors." },
+      { title: "BuildLens — Evidence-Based Technical Evaluation Platform" },
+      {
+        name: "description",
+        content:
+          "Analyze GitHub repositories, deployed applications, presentations, demo videos and developer profiles to generate trustworthy technical reports backed by evidence instead of assumptions.",
+      },
+      {
+        property: "og:title",
+        content: "BuildLens — Evidence-Based Technical Evaluation Platform",
+      },
+      {
+        property: "og:description",
+        content:
+          "Analyze repositories, deployments, presentations and developer profiles for trustworthy, evidence-backed technical reports.",
+      },
+    ],
+    links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400&family=JetBrains+Mono:wght@300;400;500&display=swap",
+      },
+      { rel: "preconnect", href: "https://d8j0ntlcm91z4.cloudfront.net" },
     ],
   }),
-  component: Index,
+  component: LandingHero,
 });
 
-const highlights = [
-  { icon: GitBranch, title: "Repository analysis", text: "Commit history, code quality and architecture at a glance." },
-  { icon: ShieldCheck, title: "Claim verification", text: "Every feature claim matched against real evidence." },
-  { icon: Gauge, title: "Performance checks", text: "Live site speed, accessibility and reliability." },
-  { icon: FileSearch, title: "Structured reports", text: "Scores, strengths, gaps and questions to ask." },
-];
+function LandingHero() {
+  const { open, setOpen, toggleRef } = useMobileMenu();
 
-function Index() {
   return (
-    <MarketingLayout>
-      <section className="relative overflow-hidden">
-        <div className="grid-bg absolute inset-0" aria-hidden />
-        <motion.div
-          aria-hidden
-          className="absolute left-1/2 top-[-10%] h-[480px] w-[720px] -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
-          animate={{ opacity: [0.5, 0.9, 0.5], scale: [1, 1.08, 1] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+    <div className="hero">
+      {/* Media layer */}
+      <div className="hero__media" aria-hidden>
+        <video
+          className="hero__video"
+          src={VIDEO_URL}
+          poster={POSTER_URL}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
         />
-        <div className="relative mx-auto max-w-4xl px-4 pb-24 pt-24 text-center sm:px-6 sm:pt-32">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-success" /> For judges, recruiters & mentors
-            </span>
-            <h1 className="text-gradient mt-6 text-4xl font-semibold tracking-tight sm:text-6xl">
-              Evidence-Based Technical Evaluation
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-              Analyze projects, verify claims and generate structured technical reports for hackathons, hiring and portfolio reviews.
-            </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button asChild variant="hero" size="lg">
-                <Link to="/login">Get Started <ArrowRight className="h-4 w-4" /></Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link to="/dashboard">Continue as Guest</Link>
-              </Button>
-            </div>
-          </motion.div>
+        <div className="hero__scrim" />
+      </div>
+
+      {/* Row 1 — navbar (z 60, stays above the menu overlay) */}
+      <header className="hero__nav">
+        <Link to="/" className="logo">
+          BuildLens
+        </Link>
+        <div className="hero__navRight">
+          <nav className="navLinks" aria-label="Main">
+            {NAV.map((n) => (
+              <a key={n.href} href={n.href} className="navLink">
+                {n.label}
+              </a>
+            ))}
+          </nav>
+          <Link to="/login" className="navCta">
+            Get Started
+          </Link>
+          <button
+            ref={toggleRef}
+            type="button"
+            className={`navToggle${open ? " is-open" : ""}`}
+            aria-expanded={open}
+            aria-controls="mobileMenu"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpen((o) => !o)}
+          >
+            <span className="bar" />
+            <span className="bar" />
+            <span className="bar" />
+          </button>
         </div>
-      </section>
-      <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {highlights.map((h, i) => (
-            <motion.div
-              key={h.title}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-              className="surface p-6 transition-transform hover:-translate-y-1"
-            >
-              <h.icon className="h-5 w-5 text-primary" />
-              <h3 className="mt-4 font-medium">{h.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{h.text}</p>
-            </motion.div>
+      </header>
+
+      {/* Row 2 — right panel */}
+      <div className="hero__body">
+        <div className="panel">
+          <span className="chip">[ Technical Evaluation Platform ]</span>
+          <h1 className="heroTitle">BuildLens</h1>
+          <p className="heroTagline">Evidence-Based Technical Evaluation.</p>
+          <p className="heroDesc">
+            Analyze GitHub repositories, deployed applications, presentations, demo videos and
+            developer profiles to generate trustworthy technical reports backed by evidence instead
+            of assumptions.
+          </p>
+
+          <div className="heroActions">
+            <Link to="/login" className="btn btn--ghost">
+              Get Started
+            </Link>
+            <Link to="/dashboard" className="btn btn--solid">
+              Continue as Guest
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3 — legal */}
+      <footer className="hero__legal">
+        <p className="legalText">
+          By continuing, you agree to our <a href="#privacy-policy">Privacy Policy</a> and{" "}
+          <a href="#terms-of-service">Terms of Service</a>.
+        </p>
+        <nav className="legalLinks" aria-label="Footer">
+          <a href="#documentation" className="legalLink">
+            Documentation
+          </a>
+          <a href="#github" className="legalLink">
+            GitHub
+          </a>
+          <a href="#contact" className="legalLink">
+            Contact
+          </a>
+        </nav>
+      </footer>
+
+      {/* Mobile menu overlay (z 50 — nav above, body below) */}
+      <div
+        id="mobileMenu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Site menu"
+        aria-hidden={!open}
+        inert={!open}
+        className={`menu${open ? " is-open" : ""}`}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setOpen(false);
+        }}
+      >
+        <ul className="menu__inner">
+          {NAV.map((n) => (
+            <li key={n.href}>
+              <a
+                href={n.href}
+                className="menuLink"
+                style={{ ["--i" as string]: n.i }}
+                onClick={() => setOpen(false)}
+              >
+                {n.label}
+              </a>
+            </li>
           ))}
-        </div>
-      </section>
-    </MarketingLayout>
+          <li>
+            <Link
+              to="/login"
+              className="menuCta"
+              style={{ ["--i" as string]: 4 }}
+              onClick={() => setOpen(false)}
+            >
+              Get Started
+            </Link>
+          </li>
+        </ul>
+      </div>
+    </div>
   );
 }

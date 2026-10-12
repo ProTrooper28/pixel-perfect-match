@@ -12,12 +12,24 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
   );
 }
 
-export function PageHero({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
+export function PageHero({
+  eyebrow,
+  title,
+  subtitle,
+}: {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+}) {
   return (
     <section className="relative overflow-hidden border-b border-border">
       <div className="grid-bg absolute inset-0" aria-hidden />
       <div className="relative mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-        {eyebrow && <p className="mb-3 text-xs font-medium uppercase tracking-widest text-primary">{eyebrow}</p>}
+        {eyebrow && (
+          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-primary">
+            {eyebrow}
+          </p>
+        )}
         <h1 className="text-gradient text-4xl font-semibold tracking-tight sm:text-5xl">{title}</h1>
         {subtitle && <p className="mt-4 text-muted-foreground">{subtitle}</p>}
       </div>

@@ -15,7 +15,10 @@ export const Route = createFileRoute("/terms")({
       <PageHero eyebrow="Legal" title="Terms of Service" subtitle="Last updated October 2026" />
       <Prose>
         <h2>Use of the service</h2>
-        <p>Only submit materials you have the right to share. Reports are decision aids, not final judgments.</p>
+        <p>
+          Only submit materials you have the right to share. Reports are decision aids, not final
+          judgments.
+        </p>
         <h2>Accounts</h2>
         <p>You are responsible for activity under your account and for keeping access secure.</p>
         <h2>Changes</h2>

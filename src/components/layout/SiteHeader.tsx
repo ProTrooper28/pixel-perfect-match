@@ -28,19 +28,30 @@ export function SiteHeader() {
             >
               {n.label}
               {"soon" in n && (
-                <span className="ml-1.5 rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wide">Soon</span>
+                <span className="ml-1.5 rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+                  Soon
+                </span>
               )}
             </Link>
           ))}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
           <ThemeToggle />
-          <Button asChild variant="ghost" size="sm"><Link to="/login">Login</Link></Button>
-          <Button asChild size="sm"><Link to="/login">Get Started</Link></Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/login">Login</Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link to="/login">Get Started</Link>
+          </Button>
         </div>
         <div className="flex items-center gap-1 md:hidden">
           <ThemeToggle />
-          <Button variant="ghost" size="icon" aria-label="Toggle menu" onClick={() => setOpen(!open)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Toggle menu"
+            onClick={() => setOpen(!open)}
+          >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
@@ -48,11 +59,20 @@ export function SiteHeader() {
       {open && (
         <nav className="border-t border-border px-4 py-3 md:hidden" aria-label="Mobile">
           {nav.map((n) => (
-            <Link key={n.to} to={n.to} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm hover:bg-accent">
+            <Link
+              key={n.to}
+              to={n.to}
+              onClick={() => setOpen(false)}
+              className="block rounded-md px-3 py-2 text-sm hover:bg-accent"
+            >
               {n.label}
             </Link>
           ))}
-          <Link to="/login" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-accent">
+          <Link
+            to="/login"
+            onClick={() => setOpen(false)}
+            className="block rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-accent"
+          >
             Login
           </Link>
         </nav>

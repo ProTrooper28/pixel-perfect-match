@@ -11,7 +11,13 @@ export function BackToTop() {
   }, []);
   if (!show) return null;
   return (
-    <Button size="icon" variant="secondary" aria-label="Back to top" className="fixed bottom-6 right-6 z-50 rounded-full shadow-card" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+    <Button
+      size="icon"
+      variant="secondary"
+      aria-label="Back to top"
+      className="fixed bottom-6 right-6 z-50 rounded-full shadow-card"
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+    >
       <ArrowUp className="h-4 w-4" />
     </Button>
   );
