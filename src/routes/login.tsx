@@ -40,9 +40,13 @@ export const Route = createFileRoute("/login")({
 function Login() {
   const navigate = useNavigate();
   const signInRef = useRef<HTMLDivElement>(null);
+  const createCardRef = useRef<HTMLElement>(null);
 
   const scrollToSignIn = () =>
     signInRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const scrollToCreate = () =>
+    createCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
 
   return (
     <div className="login-hero">
@@ -99,6 +103,33 @@ function Login() {
             </button>
           </div>
 
+          <p className="authHelper" style={{ textAlign: "center", marginTop: "clamp(14px, 1.4vw, 22px)" }}>
+            Don't have an account?{" "}
+            <button
+              type="button"
+              id="createAccountLink"
+              onClick={scrollToCreate}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                fontFamily: "inherit",
+                fontSize: "inherit",
+                fontWeight: 400,
+                color: "#fff",
+                cursor: "pointer",
+                textDecoration: "underline",
+                textUnderlineOffset: "3px",
+                textDecorationThickness: "1px",
+                transition: "color 0.25s ease",
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.62)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#fff")}
+            >
+              Create one
+            </button>
+          </p>
+
           <p className="authHelper">
             Guest Mode lets you explore BuildLens using demo investigations without signing in.
           </p>
@@ -106,6 +137,7 @@ function Login() {
 
         {/* Account creation with the animated identity card */}
         <IdentityCardForm
+          ref={createCardRef}
           onBack={scrollToSignIn}
           onSubmit={() =>
             notify.success("Account created", "Demo only — authentication isn't wired up yet.")

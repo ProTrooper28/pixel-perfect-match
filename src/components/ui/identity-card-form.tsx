@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { forwardRef, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, User } from "lucide-react";
 
 type AccountType = "Developer" | "Guest" | "Judge";
@@ -50,7 +50,8 @@ function dots(value: string) {
   return "•".repeat(Math.min(value.length, 16));
 }
 
-const IdentityCardForm = ({
+const IdentityCardForm = forwardRef<HTMLElement, Props>((
+  {
   defaultName = "",
   defaultEmail = "",
   defaultUsername = "",
@@ -63,7 +64,9 @@ const IdentityCardForm = ({
   onSubmit,
   onBack,
   className = "",
-}: Props) => {
+  },
+  ref
+) => {
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
@@ -139,7 +142,7 @@ const IdentityCardForm = ({
   const status = validity.allValid ? "Verified" : "Pending Verification";
 
   return (
-    <section className={`icf ${className}`}>
+    <section ref={ref} className={`icf ${className}`}>
       <div className="wrap">
         {/* CARD */}
         <section id="card" className={`card ${flip ? "flip" : ""}`}>
@@ -952,7 +955,7 @@ const IdentityCardForm = ({
       `}</style>
     </section>
   );
-};
+}); // end forwardRef
 
 export { IdentityCardForm };
 export type { AccountType, CardState, CardValidity };
