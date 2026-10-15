@@ -43,7 +43,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { EmptyState } from "@/components/state/EmptyState";
 import { ErrorState } from "@/components/state/ErrorState";
 import { scoreTone } from "@/components/ScoreRing";
-import { reports, type ReportStatus, type ReportRow } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/useAuth";
+import { listReports, deleteReport } from "@/services/report.service";
+import type { Report } from "@/types/database";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/reports")({
@@ -61,13 +63,14 @@ export const Route = createFileRoute("/reports")({
   component: Reports,
 });
 
-const statusClass: Record<ReportStatus, string> = {
-  Completed: "border-success/30 bg-success/10 text-success",
-  "In Progress": "border-warning/30 bg-warning/10 text-warning",
-  Failed: "border-destructive/30 bg-destructive/10 text-destructive",
+const statusClass = (status: string): string => {
+  if (status === "Completed") return "border-success/30 bg-success/10 text-success";
+  if (status === "In Progress") return "border-warning/30 bg-warning/10 text-warning";
+  if (status === "Failed") return "border-destructive/30 bg-destructive/10 text-destructive";
+  return "border-muted bg-muted/50 text-muted-foreground";
 };
 
-function rowActions(r: ReportRow, onDelete: () => void) {
+function rowActions(r: Report, onDelete: () => void) {
   return [
     {
       label: "Open report",
@@ -83,7 +86,7 @@ function rowActions(r: ReportRow, onDelete: () => void) {
             onClick: () => {
               onDelete();
               notify.undoable("Report deleted", `${r.name} removed from history.`, () =>
-                notify.success("Restore isn't available in demo", "This would call the API."),
+                notify.success("Undelete is limited in this demo", "This would call the API."),
               );
             },
           },
@@ -94,26 +97,37 @@ function rowActions(r: ReportRow, onDelete: () => void) {
 
 function Reports() {
   const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [rows, setRows] = useState<Report[]>([]);
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
 
   useEffect(() => {
-    const f = Math.random() < 0.12;
-    const t = setTimeout(() => {
-      setLoading(false);
-      setFailed(f);
-    }, 700);
-    return () => clearTimeout(t);
-  }, [hidden]);
+    if (!user || authLoading) return;
 
-  const rows = useMemo(
-    () => (hidden.size === 0 ? reports : reports.filter((r) => !hidden.has(r.id))),
-    [hidden],
-  );
+    let cancelled = false;
+    setLoading(true);
+    setFailed(false);
+
+    listReports(user.id)
+      .then((items) => {
+        if (!cancelled) setRows(items);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
+
   const visible = rows.filter(
     (r) =>
       r.name.toLowerCase().includes(q.toLowerCase()) &&
@@ -127,7 +141,34 @@ function Reports() {
     Developer: rows.filter((r) => r.type === "Developer").length,
   } as const;
 
-  const openRow = (r: ReportRow) => navigate({ to: "/report" });
+  const openRow = (r: Report) => navigate({ to: "/report", params: { id: r.id } });
+
+  const deleteRow = async (r: Report) => {
+    try {
+      await deleteReport(r.id);
+      setRows((prev) => prev.filter((x) => x.id !== r.id));
+      notify.success("Report deleted", `${r.name} removed from history.`);
+    } catch {
+      notify.error("Delete failed", "Couldn't remove this report.");
+    }
+  };
+
+  if (authLoading || !user) {
+    return (
+      <AppLayout
+        title="Report History"
+        subtitle="Every evaluation, in one place."
+        crumbs={[{ label: "Reports" }]}
+      >
+        <div className="h-64 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <div className="h-4 w-4 animate-spin rounded-full border-primary border-t-transparent" />
+            Loading reports…
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout
@@ -158,7 +199,7 @@ function Reports() {
             {t === "Project" && <FolderGit2 className="h-3.5 w-3.5" />}
             {t === "Developer" && <UserSearch className="h-3.5 w-3.5" />}
             {t === "all" ? "All types" : t}
-            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{counts[t]}</span>
+            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{counts[t as keyof typeof counts]}</span>
           </button>
         ))}
       </div>
@@ -324,11 +365,12 @@ function Reports() {
                       >
                         <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell className="text-muted-foreground">{r.type}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {r.date}
+                        <TableCell className="font-mono text-xs text-muted-foreground">                          {r.date}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={statusClass[r.status]}>
+                          <Badge
+
+ variant="outline" className={statusClass[r.status]}>
                             {r.status}
                           </Badge>
                         </TableCell>
@@ -356,7 +398,7 @@ function Reports() {
                             >
                               <DropdownMenuLabel>{r.name}</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {rowActions(r, () => setHidden((h) => new Set(h).add(r.id))).map(
+                              {rowActions(r, () => deleteRow(r)).map(
                                 (a) => (
                                   <DropdownMenuItem key={a.label} onClick={() => a.onClick()}>
                                     <a.icon className="mr-2 h-4 w-4" /> {a.label}

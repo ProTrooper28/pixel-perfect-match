@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData, useParams, useNavigate, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
   Download,
@@ -45,24 +45,44 @@ import { Separator } from "@/components/ui/separator";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { ReportSection } from "@/components/report/ReportSection";
-import { report } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/useAuth";
+import { getReport } from "@/services/report.service";
+import type { Report } from "@/types/database";
+import type { Json } from "@/types/database";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/report")({
-  head: () => ({
-    meta: [
-      { title: "Technical Report — BuildLens" },
-      {
-        name: "description",
-        content:
-          "Scores, verified features, strengths, weaknesses and questions for the evaluated project.",
-      },
-      { property: "og:title", content: "Technical Report — BuildLens" },
-      { property: "og:description", content: "An evidence-based technical evaluation report." },
-    ],
-  }),
+  head: ({ resolvedParams }) => {
+    const id = resolvedParams.id;
+    return {
+      meta: [
+        { title: id ? `Technical Report — BuildLens` : `Technical Report — BuildLens` },
+        {
+          name: "description",
+          content: id
+            ? "Scores, verified features, strengths, weaknesses and questions for the evaluated project."
+            : "An evidence-based technical evaluation report.",
+        },
+        { property: "og:title", content: id ? `Technical Report — BuildLens` : `Technical Report — BuildLens` },
+        { property: "og:description", content: id ? "Viewing a BuildLens report." : "An evidence-based technical evaluation report." },
+      ],
+    };
+  },
   component: Report,
+  loader: async ({ resolvedParams }) => {
+    const id = resolvedParams.id;
+    if (!id) return null;
+
+    try {
+      const reportRow = await getReport(id);
+      return reportRow;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  },
 });
+
 
 const listIcon = "mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary";
 
@@ -92,9 +112,35 @@ function BulletList({ items, icon }: { items: string[]; icon?: "check" | "cross"
 }
 
 function Report() {
-  const repo = report.repositoryDetail;
-  const web = report.websiteDetail;
-  const inn = report.innovation;
+  const reportRow = useLoaderData<Report | null>();
+  const repo = reportRow?.report_data?.repositoryDetail ?? report.repositoryDetail;
+  const web = reportRow?.report_data?.websiteDetail ?? report.websiteDetail;
+  const inn = reportRow?.report_data?.innovation ?? report.innovation;
+
+  const repoUrl = reportRow?.report_data?.repoUrl ?? report.repoUrl;
+  const repoName = reportRow?.report_data?.repo ?? report.repo;
+  const websiteUrl = reportRow?.report_data?.websiteUrl ?? report.websiteUrl;
+
+  const missing = !reportRow;
+
+  if (missing) {
+    return (
+      <AppLayout
+        title="Report not found"
+        subtitle="This report doesn't exist or isn't accessible."
+        crumbs={[{ label: "Reports", to: "/reports" }]}
+      >
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            This report isn't in your history, or you don't have access to it.
+          </p>
+          <Button asChild variant="outline">
+            <Link to="/reports">Back to reports</Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   const copyLink = () => {
     notify.copied("report link");
@@ -109,10 +155,13 @@ function Report() {
   };
 
   return (
-    <AppLayout
-      title={report.project}
-      subtitle={`${report.repo} · Generated ${report.generated}`}
-      crumbs={[{ label: "Reports", to: "/reports" }, { label: "Atlas — Climate Risk Dashboard" }]}
+    <AppLayout      title={reportRow?.name ?? report.project}
+      subtitle={`${reportRow?.project_id ? "Project report" : "Developer report"} · Generated ${(new Date(reportRow?.created_at ?? report.created_at)).toISOString().slice(0, 10)}`}
+        crumbs={[
+          { label: "Reports", to: "/reports" },
+          { label: reportRow?.name ?? `Atlas — Climate Risk Dashboard` },
+        ]}
+
       actions={
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={copyLink}>
@@ -220,14 +269,13 @@ function Report() {
             title="Repository"
             icon={<Github className="h-4 w-4" />}
             count={repo.contributors}
-          >
-            <a
-              href={report.repoUrl}
+          >              <a
+              href={reportRow?.report_data?.repoUrl ?? report.repoUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
-              {report.repo} <ExternalLink className="h-3.5 w-3.5" />
+              {repoName} <ExternalLink className="h-3.5 w-3.5" />
             </a>
             <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
               {[
@@ -307,12 +355,12 @@ function Report() {
 
           <ReportSection value="website" title="Website" icon={<Globe className="h-4 w-4" />}>
             <a
-              href={report.websiteUrl}
+              href={reportRow?.report_data?.websiteUrl ?? report.websiteUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
-              {report.websiteUrl} <ExternalLink className="h-3.5 w-3.5" />
+              {reportRow?.report_data?.websiteUrl ?? report.websiteUrl} <ExternalLink className="h-3.5 w-3.5" />
             </a>
             <Badge variant="outline" className="ml-3 border-success/30 bg-success/10 text-success">
               {web.status}

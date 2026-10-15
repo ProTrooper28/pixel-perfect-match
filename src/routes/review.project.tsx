@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { FileDrop, type FileDropStatus } from "@/components/FileDrop";
+import { useAuth } from "@/hooks/useAuth";
+import { createProjectForUser } from "@/services/project.service";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/review/project")({
@@ -45,6 +47,8 @@ function ReviewProject() {
   const [videoStatus, setVideoStatus] = useState<FileDropStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
 
+  const { user, isLoading: authLoading } = useAuth();
+
   const repoValid = validateUrl(repo);
   const liveValid = validateUrl(live);
   const nameValid = name.trim().length >= 2;
@@ -57,8 +61,8 @@ function ReviewProject() {
   const videoReady = videoStatus === "success";
 
   const canSubmit = useMemo(
-    () => nameValid && repoValid && liveValid && deckReady,
-    [nameValid, repoValid, liveValid, deckReady],
+    () => nameValid && repoValid && liveValid && deckReady && !!user,
+    [nameValid, repoValid, liveValid, deckReady, user],
   );
 
   const needs = [
@@ -70,16 +74,24 @@ function ReviewProject() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched({ name: true, repo: true, live: true });
-    if (!canSubmit) {
+    if (!canSubmit || !user) {
       notify.error("Check your inputs", "Complete the highlighted fields before analyzing.");
       return;
     }
     setSubmitting(true);
     try {
-      // Mocked upload: swap for a real mutation when backend exists.
-      await new Promise((res) => setTimeout(res, 650));
-      notify.success("Submitting project", `${name} is queued for investigation.`);
-      navigate({ to: "/progress" });
+      const project = await createProjectForUser(user.id, {
+        name: name.trim(),
+        repo_url: repo.trim() || null,
+        website_url: live.trim() || null,
+        description: notes.trim() || null,
+        status: "draft",
+      });
+
+      notify.success("Project submitted", `${project.name} is queued for investigation.`);
+      navigate({ to: "/progress", params: { projectId: project.id } });
+    } catch (error) {
+      notify.error("Submission failed", "We couldn't create this project review.");
     } finally {
       setSubmitting(false);
     }
@@ -132,6 +144,11 @@ function ReviewProject() {
       crumbs={[{ label: "Review Project" }]}
     >
       <form className="surface mx-auto max-w-3xl space-y-7 p-6 sm:p-8" onSubmit={submit} noValidate>
+        {!user && (
+          <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
+            Sign in to submit a project review.
+          </div>
+        )}
         <div className="space-y-7">
           {/* Name */}
           <div className="space-y-2">

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -19,7 +20,9 @@ import { EmptyState } from "@/components/state/EmptyState";
 import { ErrorState } from "@/components/state/ErrorState";
 import { CardRowSkeleton } from "@/components/state/skeletons";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
-import { reports, type ReportStatus } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/useAuth";
+import { listReports } from "@/services/report.service";
+import type { Report } from "@/types/database";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/dashboard")({
@@ -61,50 +64,78 @@ const cards = [
   },
 ] as const;
 
-const statusClass: Record<ReportStatus, string> = {
-  Completed: "border-success/30 bg-success/10 text-success",
-  "In Progress": "border-warning/30 bg-warning/10 text-warning",
-  Failed: "border-destructive/30 bg-destructive/10 text-destructive",
+const statusClass = (status: string): string => {
+  if (status === "Completed") return "border-success/30 bg-success/10 text-success";
+  if (status === "In Progress") return "border-warning/30 bg-warning/10 text-warning";
+  if (status === "Failed") return "border-destructive/30 bg-destructive/10 text-destructive";
+  return "border-muted bg-muted/50 text-muted-foreground";
 };
 
-function useSimulatedLoad(ms: number, failRate = 0.15) {
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    const f = failRate > 0 && Math.random() < failRate;
-    const t = setTimeout(() => {
-      setLoading(false);
-      setFailed(f);
-    }, ms);
-    return () => clearTimeout(t);
-  }, [ms, failRate]);
-  return {
-    loading,
-    failed,
-    retry: () => {
-      setLoading(true);
-      setFailed(false);
-      const t = setTimeout(() => setLoading(false), ms);
-      return () => clearTimeout(t);
-    },
-  };
-}
+
 
 function Dashboard() {
-  const { loading, failed, retry } = useSimulatedLoad(900);
+  const { user, isLoading: authLoading, profile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [reportsList, setReportsList] = useState<Report[]>([]);
 
-  // Derive quick stats from mocked report history
-  const completed = reports.filter((r) => r.status === "Completed");
-  const avg = completed.length
-    ? Math.round(completed.reduce((a, r) => a + (r.score ?? 0), 0) / completed.length)
-    : 0;
-  const thisWeek = reports.filter((r) => r.date >= "2026-10-05").length;
-  const recent = reports.slice(0, 4);
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setFailed(false);
+
+    listReports(user.id)
+      .then((rows) => {
+        if (!cancelled) setReportsList(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
+
+  const reportsListSafe = reportsList.length > 0 ? reportsList : [];
+  const completed = reportsListSafe.filter((r) => r.status === "Completed");
+  const avg =
+    completed.length > 0
+      ? Math.round(completed.reduce((a, r) => a + (r.score ?? 0), 0) / completed.length)
+      : 0;
+  const thisWeek = reportsListSafe.filter(
+    (r) => new Date(r.created_at).toISOString().slice(0, 10) >= "2026-10-05",
+  ).length;
+  const recent = reportsListSafe.slice(0, 4);
+
+  if (authLoading || (!user && !profile)) {
+    return (
+      <AppLayout
+        title="Good evening"
+        subtitle="What would you like to evaluate today?"
+        crumbs={[{ label: "Dashboard" }]}
+      >
+        <section
+          aria-label="Workspace stats"
+          className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {Array.from({ length: 4 }).map((_, i) => (
+            <CardRowSkeleton key={i} />
+          ))}
+        </section>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout
       title="Good evening"
-      subtitle="What would you like to evaluate today?"
+      subtitle={profile?.full_name ? `Welcome back, ${profile.full_name.split(" ")[0]}.` : "What would you like to evaluate today?"}
       crumbs={[{ label: "Dashboard" }]}
     >
       {/* Stats strip */}
@@ -118,8 +149,12 @@ function Dashboard() {
           <div className="sm:col-span-2 lg:col-span-4">
             <ErrorState
               title="Couldn't load workspace stats"
-              description="Your session data didn't come through."
-              onRetry={retry}
+              description="Your reports didn't come through."
+              onRetry={() => {
+                setLoading(true);
+                setFailed(false);
+                listReports(user!.id).then((rows) => setReportsList(rows)).catch(() => setFailed(true)).finally(() => setLoading(false));
+              }}
             />
           </div>
         ) : (
@@ -134,7 +169,7 @@ function Dashboard() {
                   <p className="text-sm text-muted-foreground">Total reports</p>
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <p className="mt-3 text-3xl font-semibold tabular-nums">{reports.length}</p>
+                <p className="mt-3 text-3xl font-semibold tabular-nums">{reportsList.length}</p>
                 <p className="mt-1 text-xs text-muted-foreground">All evaluations to date</p>
               </div>
             </motion.div>
@@ -179,7 +214,7 @@ function Dashboard() {
                   <Clock3 className="h-4 w-4 text-warning" />
                 </div>
                 <p className="mt-3 text-3xl font-semibold tabular-nums">
-                  {reports.filter((r) => r.status === "In Progress").length}
+                  {reportsList.filter((r) => r.status === "In Progress").length}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">Still gathering evidence</p>
               </div>
@@ -223,7 +258,14 @@ function Dashboard() {
             <ErrorState
               compact
               title="Recent reports unavailable"
-              onRetry={retry}
+              onRetry={() => {
+                setLoading(true);
+                setFailed(false);
+                listReports(user!.id)
+                  .then((rows) => setReportsList(rows))
+                  .catch(() => setFailed(true))
+                  .finally(() => setLoading(false));
+              }}
               className="rounded-none"
             />
           ) : recent.length === 0 ? (
@@ -260,12 +302,12 @@ function Dashboard() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{r.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {r.date} · {r.type} review
+                        {new Date(r.created_at).toISOString().slice(0, 10)} · {r.type} review
                       </p>
                     </div>
                     <Badge
                       variant="outline"
-                      className={`hidden sm:inline-flex ${statusClass[r.status]}`}
+                      className={`hidden sm:inline-flex ${statusClass(r.status)}`}
                     >
                       {r.status}
                     </Badge>

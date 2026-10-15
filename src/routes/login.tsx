@@ -1,8 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "@/components/marketing/cinematic.css";
 import { IdentityCardForm } from "@/components/ui/identity-card-form";
+import type { CardState } from "@/components/ui/identity-card-form";
 import { notify } from "@/lib/toast-messages";
+import { useAuth } from "@/hooks/useAuth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260806_133255_956f653f-5d80-4b06-abd5-0f46c98b60fa.mp4";
@@ -41,12 +44,73 @@ function Login() {
   const navigate = useNavigate();
   const signInRef = useRef<HTMLDivElement>(null);
   const createCardRef = useRef<HTMLElement>(null);
+  const { signInWithOAuth, signUpWithEmail, continueAsGuest, user, isLoading } = useAuth();
+  const [pending, setPending] = useState<"google" | "github" | "signup" | null>(null);
+
+  // Already signed in (or returning from OAuth) → go straight to the app.
+  useEffect(() => {
+    if (!isLoading && user) navigate({ to: "/dashboard", replace: true });
+  }, [isLoading, user, navigate]);
 
   const scrollToSignIn = () =>
     signInRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
 
   const scrollToCreate = () =>
     createCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const requireSupabase = () => {
+    if (isSupabaseConfigured) return true;
+    notify.error(
+      "Supabase not configured",
+      "Add your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.",
+    );
+    return false;
+  };
+
+  const handleOAuth = async (provider: "google" | "github") => {
+    if (!requireSupabase()) return;
+    setPending(provider);
+    try {
+      // On success the browser redirects away to the provider.
+      await signInWithOAuth(provider);
+    } catch (error) {
+      notify.error("Sign-in failed", error instanceof Error ? error.message : "Please try again.");
+      setPending(null);
+    }
+  };
+
+  const handleGuest = () => {
+    continueAsGuest();
+    navigate({ to: "/dashboard" });
+  };
+
+  const handleSignUp = async (state: CardState) => {
+    if (pending) return;
+    if (!requireSupabase()) return;
+    setPending("signup");
+    try {
+      const { needsEmailConfirmation } = await signUpWithEmail({
+        email: state.email.trim(),
+        password: state.password,
+        fullName: state.name.trim(),
+        username: state.username.trim() || undefined,
+        organization: state.organization.trim() || undefined,
+      });
+      if (needsEmailConfirmation) {
+        notify.success(
+          "Check your email",
+          "We sent you a confirmation link to finish creating your account.",
+        );
+      } else {
+        notify.success("Account created", "Welcome to BuildLens.");
+        navigate({ to: "/dashboard" });
+      }
+    } catch (error) {
+      notify.error("Sign-up failed", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setPending(null);
+    }
+  };
 
   return (
     <div className="login-hero">
@@ -82,12 +146,23 @@ function Login() {
           <p className="authTagline">Evidence-Based Technical Evaluation.</p>
 
           <div className="authActions">
-            {/* UI only — authentication is not wired up yet */}
-            <button type="button" className="btn btn--ghost">
-              Continue with Google
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={pending !== null}
+              aria-busy={pending === "google"}
+              onClick={() => handleOAuth("google")}
+            >
+              {pending === "google" ? "Redirecting…" : "Continue with Google"}
             </button>
-            <button type="button" className="btn btn--ghost">
-              Continue with GitHub
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={pending !== null}
+              aria-busy={pending === "github"}
+              onClick={() => handleOAuth("github")}
+            >
+              {pending === "github" ? "Redirecting…" : "Continue with GitHub"}
             </button>
 
             <div className="authDivider" aria-hidden>
@@ -97,13 +172,17 @@ function Login() {
             <button
               type="button"
               className="btn btn--solid"
-              onClick={() => navigate({ to: "/dashboard" })}
+              disabled={pending !== null}
+              onClick={handleGuest}
             >
               Continue as Guest
             </button>
           </div>
 
-          <p className="authHelper" style={{ textAlign: "center", marginTop: "clamp(14px, 1.4vw, 22px)" }}>
+          <p
+            className="authHelper"
+            style={{ textAlign: "center", marginTop: "clamp(14px, 1.4vw, 22px)" }}
+          >
             Don't have an account?{" "}
             <button
               type="button"
@@ -123,7 +202,9 @@ function Login() {
                 textDecorationThickness: "1px",
                 transition: "color 0.25s ease",
               }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.62)")}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.62)")
+              }
               onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#fff")}
             >
               Create one
@@ -136,13 +217,7 @@ function Login() {
         </div>
 
         {/* Account creation with the animated identity card */}
-        <IdentityCardForm
-          ref={createCardRef}
-          onBack={scrollToSignIn}
-          onSubmit={() =>
-            notify.success("Account created", "Demo only — authentication isn't wired up yet.")
-          }
-        />
+        <IdentityCardForm ref={createCardRef} onBack={scrollToSignIn} onSubmit={handleSignUp} />
       </div>
     </div>
   );

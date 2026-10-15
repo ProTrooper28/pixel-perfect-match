@@ -50,336 +50,340 @@ function dots(value: string) {
   return "•".repeat(Math.min(value.length, 16));
 }
 
-const IdentityCardForm = forwardRef<HTMLElement, Props>((
-  {
-  defaultName = "",
-  defaultEmail = "",
-  defaultUsername = "",
-  defaultOrganization = "",
-  accountType = "Developer",
-  ring1 = "#ff6be7",
-  ring2 = "#7288ff",
-  showSubmit = true,
-  onChange,
-  onSubmit,
-  onBack,
-  className = "",
-  },
-  ref
-) => {
-  const [name, setName] = useState(defaultName);
-  const [email, setEmail] = useState(defaultEmail);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [username, setUsername] = useState(defaultUsername);
-  const [organization, setOrganization] = useState(defaultOrganization);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [focusField, setFocusField] = useState<
-    null | "name" | "email" | "password" | "confirm" | "username" | "organization"
-  >(null);
+const IdentityCardForm = forwardRef<HTMLElement, Props>(
+  (
+    {
+      defaultName = "",
+      defaultEmail = "",
+      defaultUsername = "",
+      defaultOrganization = "",
+      accountType = "Developer",
+      ring1 = "#ff6be7",
+      ring2 = "#7288ff",
+      showSubmit = true,
+      onChange,
+      onSubmit,
+      onBack,
+      className = "",
+    },
+    ref,
+  ) => {
+    const [name, setName] = useState(defaultName);
+    const [email, setEmail] = useState(defaultEmail);
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [username, setUsername] = useState(defaultUsername);
+    const [organization, setOrganization] = useState(defaultOrganization);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [focusField, setFocusField] = useState<
+      null | "name" | "email" | "password" | "confirm" | "username" | "organization"
+    >(null);
 
-  // Same flip behaviour as the source component: card shows its back while a
-  // security field has focus, and rotates back once focus leaves both fields.
-  const flip = focusField === "password" || focusField === "confirm";
+    // Same flip behaviour as the source component: card shows its back while a
+    // security field has focus, and rotates back once focus leaves both fields.
+    const flip = focusField === "password" || focusField === "confirm";
 
-  const memberSince = useMemo(() => new Date().getFullYear(), []);
+    const memberSince = useMemo(() => new Date().getFullYear(), []);
 
-  // Validation
-  const validity: CardValidity = useMemo(() => {
-    const nameValid = name.trim().length >= 2;
-    const emailValid = EMAIL_RE.test(email.trim());
-    const passwordValid =
-      password.length >= 8 &&
-      /[A-Z]/.test(password) &&
-      /[a-z]/.test(password) &&
-      /\d/.test(password) &&
-      /[^A-Za-z0-9]/.test(password);
-    const confirmPasswordValid = confirmPassword.length > 0 && confirmPassword === password;
-    return {
-      name: nameValid,
-      email: emailValid,
-      password: passwordValid,
-      confirmPassword: confirmPasswordValid,
-      allValid: nameValid && emailValid && passwordValid && confirmPasswordValid,
+    // Validation
+    const validity: CardValidity = useMemo(() => {
+      const nameValid = name.trim().length >= 2;
+      const emailValid = EMAIL_RE.test(email.trim());
+      const passwordValid =
+        password.length >= 8 &&
+        /[A-Z]/.test(password) &&
+        /[a-z]/.test(password) &&
+        /\d/.test(password) &&
+        /[^A-Za-z0-9]/.test(password);
+      const confirmPasswordValid = confirmPassword.length > 0 && confirmPassword === password;
+      return {
+        name: nameValid,
+        email: emailValid,
+        password: passwordValid,
+        confirmPassword: confirmPasswordValid,
+        allValid: nameValid && emailValid && passwordValid && confirmPasswordValid,
+      };
+    }, [name, email, password, confirmPassword]);
+
+    // Notify parent on change
+    useEffect(() => {
+      onChange?.({ name, email, password, confirmPassword, username, organization }, validity);
+    }, [name, email, password, confirmPassword, username, organization, validity, onChange]);
+
+    const nameError = name.length > 0 && !validity.name;
+    const emailError = email.length > 0 && !validity.email;
+    const passwordError = password.length > 0 && !validity.password;
+    const confirmPasswordError = confirmPassword.length > 0 && !validity.confirmPassword;
+
+    const highlightClass = (() => {
+      switch (focusField) {
+        case "name":
+          return "highlight__name";
+        case "email":
+          return "highlight__email";
+        case "username":
+          return "highlight__username";
+        case "organization":
+          return "highlight__org";
+        case "password":
+        case "confirm":
+          return "highlight__security";
+        default:
+          return "hidden";
+      }
+    })();
+
+    const handleSubmit = (e: FormEvent) => {
+      e.preventDefault();
+      onSubmit?.({ name, email, password, confirmPassword, username, organization }, validity);
     };
-  }, [name, email, password, confirmPassword]);
 
-  // Notify parent on change
-  useEffect(() => {
-    onChange?.({ name, email, password, confirmPassword, username, organization }, validity);
-  }, [name, email, password, confirmPassword, username, organization, validity, onChange]);
+    const initial = name.trim().charAt(0).toUpperCase() || "?";
+    const status = validity.allValid ? "Verified" : "Pending Verification";
 
-  const nameError = name.length > 0 && !validity.name;
-  const emailError = email.length > 0 && !validity.email;
-  const passwordError = password.length > 0 && !validity.password;
-  const confirmPasswordError = confirmPassword.length > 0 && !validity.confirmPassword;
-
-  const highlightClass = (() => {
-    switch (focusField) {
-      case "name":
-        return "highlight__name";
-      case "email":
-        return "highlight__email";
-      case "username":
-        return "highlight__username";
-      case "organization":
-        return "highlight__org";
-      case "password":
-      case "confirm":
-        return "highlight__security";
-      default:
-        return "hidden";
-    }
-  })();
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    onSubmit?.({ name, email, password, confirmPassword, username, organization }, validity);
-  };
-
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
-  const status = validity.allValid ? "Verified" : "Pending Verification";
-
-  return (
-    <section ref={ref} className={`icf ${className}`}>
-      <div className="wrap">
-        {/* CARD */}
-        <section id="card" className={`card ${flip ? "flip" : ""}`}>
-          <div id="highlight" className={highlightClass} />
-          {/* FRONT */}
-          <section
-            className="card__front"
-            style={{ ["--ring1" as string]: ring1, ["--ring2" as string]: ring2 }}
-          >
-            <div className="card__header">
-              <div>BuildLens</div>
-              <div className={`badge ${validity.allValid ? "is-verified" : ""}`}>
-                <ShieldCheck size={18} strokeWidth={1.75} aria-hidden />
-                <span>Verified Identity</span>
-              </div>
-            </div>
-
-            <div className="avatar" aria-hidden>
-              {initial}
-            </div>
-
-            <div id="card_name" className={`card__name ${name.trim() ? "" : "is-placeholder"}`}>
-              {name.trim() || "YOUR NAME"}
-            </div>
-            <div id="card_username" className="card__username">
-              {username ? `@${username.replace(/^@/, "")}` : ""}
-            </div>
-            <div id="card_email" className={`card__email ${email.trim() ? "" : "is-placeholder"}`}>
-              {email.trim() || "john@example.com"}
-            </div>
-            <div id="card_account" className="card__account">
-              <span className="card__account__chip">
-                <span className="card__account__dot" aria-hidden />
-                {accountType}
-              </span>
-            </div>
-
-            <div className="card__footer">
-              <div className="card__meta">
-                <div className="card__section__title">Member Since</div>
-                <div className="card__meta__value">{memberSince}</div>
-              </div>
-              <div className="card__meta card__meta--right">
-                <div className="card__section__title">Status</div>
-                <div className={`card__status ${validity.allValid ? "is-verified" : ""}`}>
-                  {status}
+    return (
+      <section ref={ref} className={`icf ${className}`}>
+        <div className="wrap">
+          {/* CARD */}
+          <section id="card" className={`card ${flip ? "flip" : ""}`}>
+            <div id="highlight" className={highlightClass} />
+            {/* FRONT */}
+            <section
+              className="card__front"
+              style={{ ["--ring1" as string]: ring1, ["--ring2" as string]: ring2 }}
+            >
+              <div className="card__header">
+                <div>BuildLens</div>
+                <div className={`badge ${validity.allValid ? "is-verified" : ""}`}>
+                  <ShieldCheck size={18} strokeWidth={1.75} aria-hidden />
+                  <span>Verified Identity</span>
                 </div>
               </div>
-            </div>
-          </section>
-          {/* BACK */}
-          <section
-            className="card__back"
-            style={{ ["--ring1" as string]: ring1, ["--ring2" as string]: ring2 }}
-          >
-            <div className="security__title">
-              <Lock size={15} strokeWidth={2} aria-hidden />
-              <span>Security</span>
-            </div>
-            <div id="card_password" className="security__row">
-              <span className="security__label">Password</span>
-              <span className="security__dots">{dots(password)}</span>
-            </div>
-            <div id="card_confirm" className="security__row">
-              <span className="security__label">Confirm Password</span>
-              <span className="security__dots">{dots(confirmPassword)}</span>
-            </div>
-          </section>
-        </section>
-        {/* FORM */}
-        <form className="form" onSubmit={handleSubmit} noValidate>
-          <div>
-            <label htmlFor="icf-name">Full Name</label>
-            <div className="input">
-              <span className="input__icon" aria-hidden>
-                <User size={16} />
-              </span>
-              <input
-                id="icf-name"
-                type="text"
-                autoComplete="name"
-                placeholder="JOHN DOE"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onFocus={() => setFocusField("name")}
-                onBlur={() => setFocusField(null)}
-                aria-invalid={!validity.name}
-              />
-            </div>
-            {nameError && <small className="err">Name must be at least 2 characters</small>}
-          </div>
 
-          <div>
-            <label htmlFor="icf-email">Email Address</label>
-            <div className="input">
-              <span className="input__icon" aria-hidden>
-                <Mail size={16} />
-              </span>
-              <input
-                id="icf-email"
-                type="email"
-                autoComplete="email"
-                placeholder="john@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onFocus={() => setFocusField("email")}
-                onBlur={() => setFocusField(null)}
-                aria-invalid={!validity.email}
-              />
-            </div>
-            {emailError && <small className="err">Enter a valid email address</small>}
-          </div>
+              <div className="avatar" aria-hidden>
+                {initial}
+              </div>
 
-          <div>
-            <label htmlFor="icf-password">Password</label>
-            <div className="input input--eye">
-              <span className="input__icon" aria-hidden>
-                <Lock size={16} />
-              </span>
-              <input
-                id="icf-password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="8+ characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setFocusField("password")}
-                onBlur={() => setFocusField(null)}
-                aria-invalid={!validity.password}
-              />
-              <button
-                type="button"
-                className="eye"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowPassword((v) => !v)}
+              <div id="card_name" className={`card__name ${name.trim() ? "" : "is-placeholder"}`}>
+                {name.trim() || "YOUR NAME"}
+              </div>
+              <div id="card_username" className="card__username">
+                {username ? `@${username.replace(/^@/, "")}` : ""}
+              </div>
+              <div
+                id="card_email"
+                className={`card__email ${email.trim() ? "" : "is-placeholder"}`}
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            {passwordError && (
-              <small className="err">
-                8+ characters with an uppercase letter, lowercase letter, number &amp; special
-                character
-              </small>
-            )}
-          </div>
+                {email.trim() || "john@example.com"}
+              </div>
+              <div id="card_account" className="card__account">
+                <span className="card__account__chip">
+                  <span className="card__account__dot" aria-hidden />
+                  {accountType}
+                </span>
+              </div>
 
-          <div>
-            <label htmlFor="icf-confirm">Confirm Password</label>
-            <div className="input input--eye">
-              <span className="input__icon" aria-hidden>
-                <Lock size={16} />
-              </span>
-              <input
-                id="icf-confirm"
-                type={showConfirm ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="Re-enter password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                onFocus={() => setFocusField("confirm")}
-                onBlur={() => setFocusField(null)}
-                aria-invalid={!validity.confirmPassword}
-              />
-              <button
-                type="button"
-                className="eye"
-                aria-label={showConfirm ? "Hide password" : "Show password"}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowConfirm((v) => !v)}
-              >
-                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            {confirmPasswordError && <small className="err">Passwords do not match</small>}
-          </div>
-
-          <div className="filed__group">
+              <div className="card__footer">
+                <div className="card__meta">
+                  <div className="card__section__title">Member Since</div>
+                  <div className="card__meta__value">{memberSince}</div>
+                </div>
+                <div className="card__meta card__meta--right">
+                  <div className="card__section__title">Status</div>
+                  <div className={`card__status ${validity.allValid ? "is-verified" : ""}`}>
+                    {status}
+                  </div>
+                </div>
+              </div>
+            </section>
+            {/* BACK */}
+            <section
+              className="card__back"
+              style={{ ["--ring1" as string]: ring1, ["--ring2" as string]: ring2 }}
+            >
+              <div className="security__title">
+                <Lock size={15} strokeWidth={2} aria-hidden />
+                <span>Security</span>
+              </div>
+              <div id="card_password" className="security__row">
+                <span className="security__label">Password</span>
+                <span className="security__dots">{dots(password)}</span>
+              </div>
+              <div id="card_confirm" className="security__row">
+                <span className="security__label">Confirm Password</span>
+                <span className="security__dots">{dots(confirmPassword)}</span>
+              </div>
+            </section>
+          </section>
+          {/* FORM */}
+          <form className="form" onSubmit={handleSubmit} noValidate>
             <div>
-              <label htmlFor="icf-username">
-                Username <span className="optional">Optional</span>
-              </label>
+              <label htmlFor="icf-name">Full Name</label>
               <div className="input">
                 <span className="input__icon" aria-hidden>
                   <User size={16} />
                 </span>
                 <input
-                  id="icf-username"
+                  id="icf-name"
                   type="text"
-                  autoComplete="username"
-                  placeholder="johndoe"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  onFocus={() => setFocusField("username")}
+                  autoComplete="name"
+                  placeholder="JOHN DOE"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onFocus={() => setFocusField("name")}
                   onBlur={() => setFocusField(null)}
+                  aria-invalid={!validity.name}
                 />
               </div>
+              {nameError && <small className="err">Name must be at least 2 characters</small>}
             </div>
-            <div>
-              <label htmlFor="icf-organization">
-                Organization <span className="optional">Optional</span>
-              </label>
-              <div className="input">
-                <span className="input__icon" aria-hidden />
-                <input
-                  id="icf-organization"
-                  type="text"
-                  autoComplete="organization"
-                  placeholder="Acme Inc."
-                  value={organization}
-                  onChange={(e) => setOrganization(e.target.value)}
-                  onFocus={() => setFocusField("organization")}
-                  onBlur={() => setFocusField(null)}
-                />
-              </div>
-            </div>
-          </div>
 
-          {showSubmit && (
-            <div className="actions">
-              <button
-                className="submit"
-                type="submit"
-                disabled={!validity.allValid}
-                aria-disabled={!validity.allValid}
-              >
-                Create Account
-              </button>
-              <button className="back" type="button" onClick={() => onBack?.()}>
-                Back to Login
-              </button>
+            <div>
+              <label htmlFor="icf-email">Email Address</label>
+              <div className="input">
+                <span className="input__icon" aria-hidden>
+                  <Mail size={16} />
+                </span>
+                <input
+                  id="icf-email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="john@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusField("email")}
+                  onBlur={() => setFocusField(null)}
+                  aria-invalid={!validity.email}
+                />
+              </div>
+              {emailError && <small className="err">Enter a valid email address</small>}
             </div>
-          )}
-        </form>
-      </div>
-      <style>{`
+
+            <div>
+              <label htmlFor="icf-password">Password</label>
+              <div className="input input--eye">
+                <span className="input__icon" aria-hidden>
+                  <Lock size={16} />
+                </span>
+                <input
+                  id="icf-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="8+ characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusField("password")}
+                  onBlur={() => setFocusField(null)}
+                  aria-invalid={!validity.password}
+                />
+                <button
+                  type="button"
+                  className="eye"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {passwordError && (
+                <small className="err">
+                  8+ characters with an uppercase letter, lowercase letter, number &amp; special
+                  character
+                </small>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="icf-confirm">Confirm Password</label>
+              <div className="input input--eye">
+                <span className="input__icon" aria-hidden>
+                  <Lock size={16} />
+                </span>
+                <input
+                  id="icf-confirm"
+                  type={showConfirm ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="Re-enter password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onFocus={() => setFocusField("confirm")}
+                  onBlur={() => setFocusField(null)}
+                  aria-invalid={!validity.confirmPassword}
+                />
+                <button
+                  type="button"
+                  className="eye"
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowConfirm((v) => !v)}
+                >
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {confirmPasswordError && <small className="err">Passwords do not match</small>}
+            </div>
+
+            <div className="filed__group">
+              <div>
+                <label htmlFor="icf-username">
+                  Username <span className="optional">Optional</span>
+                </label>
+                <div className="input">
+                  <span className="input__icon" aria-hidden>
+                    <User size={16} />
+                  </span>
+                  <input
+                    id="icf-username"
+                    type="text"
+                    autoComplete="username"
+                    placeholder="johndoe"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onFocus={() => setFocusField("username")}
+                    onBlur={() => setFocusField(null)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="icf-organization">
+                  Organization <span className="optional">Optional</span>
+                </label>
+                <div className="input">
+                  <span className="input__icon" aria-hidden />
+                  <input
+                    id="icf-organization"
+                    type="text"
+                    autoComplete="organization"
+                    placeholder="Acme Inc."
+                    value={organization}
+                    onChange={(e) => setOrganization(e.target.value)}
+                    onFocus={() => setFocusField("organization")}
+                    onBlur={() => setFocusField(null)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {showSubmit && (
+              <div className="actions">
+                <button
+                  className="submit"
+                  type="submit"
+                  disabled={!validity.allValid}
+                  aria-disabled={!validity.allValid}
+                >
+                  Create Account
+                </button>
+                <button className="back" type="button" onClick={() => onBack?.()}>
+                  Back to Login
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
+        <style>{`
         .icf {
           width: 100%;
           display: flex;
@@ -953,9 +957,10 @@ const IdentityCardForm = forwardRef<HTMLElement, Props>((
           }
         }
       `}</style>
-    </section>
-  );
-}); // end forwardRef
+      </section>
+    );
+  },
+); // end forwardRef
 
 export { IdentityCardForm };
 export type { AccountType, CardState, CardValidity };

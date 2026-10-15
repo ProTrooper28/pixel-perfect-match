@@ -46,6 +46,9 @@ const stepIcons = [GitBranch, FolderGit2, FileText, Globe, Gauge, ShieldCheck, S
 
 function ProgressPage() {
   const navigate = useNavigate();
+  const params = useParams({ strict: false }) as { projectId?: string; reportId?: string } | null;
+  const projectId = params?.projectId ?? undefined;
+  const reportId = params?.reportId ?? undefined;
   const [done, setDone] = useState(0);
   const [failed, setFailed] = useState<null | number>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -87,13 +90,13 @@ function ProgressPage() {
   const viewReport = () => {
     setNavigating(true);
     notify.success("Report ready", "Opening the investigation report.");
-    setTimeout(() => navigate({ to: "/report" }), 250);
+    setTimeout(() => navigate({ to: "/report", params: { id: reportId ?? "" } }), 250);
   };
 
   return (
     <AppLayout
       title={finished ? "Analysis complete" : failed !== null ? "Analysis failed" : "Analyzing…"}
-      subtitle={`Atlas — Climate Risk Dashboard · elapsed ${timerLabel}`}
+      subtitle={`Review in progress · elapsed ${timerLabel}`}
       crumbs={[{ label: "Investigation Timeline" }]}
       actions={
         finished ? (

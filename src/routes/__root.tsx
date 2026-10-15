@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { BackToTop } from "@/components/layout/BackToTop";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 function NotFoundComponent() {
   return (
@@ -127,9 +128,11 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <BackToTop />
-      <Toaster richColors position="bottom-right" />
+      <AuthProvider>
+        <Outlet />
+        <BackToTop />
+        <Toaster richColors position="bottom-right" />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

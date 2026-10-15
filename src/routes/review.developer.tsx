@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { FileDrop, type FileDropStatus } from "@/components/FileDrop";
+import { useAuth } from "@/hooks/useAuth";
+import { createReportForUser } from "@/services/report.service";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/review/developer")({
@@ -45,6 +47,8 @@ function ReviewDeveloper() {
   const [resumeStatus, setResumeStatus] = useState<FileDropStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
 
+  const { user, isLoading: authLoading } = useAuth();
+
   const linkedinValid = validateUrl(linkedin);
   const githubValid = validateUrl(github);
   const portfolioValid = validateUrl(portfolio);
@@ -61,8 +65,8 @@ function ReviewDeveloper() {
 
   const resumeReady = resumeStatus === "success";
   const canSubmit = useMemo(
-    () => nameValid && linkedinValid && githubValid && portfolioValid && codingValid && resumeReady,
-    [nameValid, githubValid, linkedinValid, portfolioValid, codingValid, resumeReady],
+    () => nameValid && linkedinValid && githubValid && portfolioValid && codingValid && resumeReady && !!user,
+    [nameValid, githubValid, linkedinValid, portfolioValid, codingValid, resumeReady, user],
   );
 
   const needs = [
@@ -78,15 +82,31 @@ function ReviewDeveloper() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched({ name: true, linkedin: true, github: true, portfolio: true, coding: true });
-    if (!canSubmit) {
+    if (!canSubmit || !user) {
       notify.error("Check your inputs", "Complete the highlighted fields before analyzing.");
       return;
     }
     setSubmitting(true);
     try {
-      await new Promise((res) => setTimeout(res, 650));
-      notify.success("Submitting candidate", `${name} is queued for review.`);
-      navigate({ to: "/progress" });
+      const report = await createReportForUser(user.id, {
+        type: "Developer",
+        name: name.trim(),
+        project_id: null,
+        status: "In Progress",
+        report_data: {
+          candidate_name: name.trim(),
+          linkedin: linkedin.trim() || null,
+          github: github.trim() || null,
+          portfolio: portfolio.trim() || null,
+          coding: coding.trim() || null,
+          notes: notes.trim() || null,
+        },
+      });
+
+      notify.success("Candidate submitted", `${report.name} is queued for review.`);
+      navigate({ to: "/progress", params: { reportId: report.id } });
+    } catch (error) {
+      notify.error("Submission failed", "We couldn't start this developer review.");
     } finally {
       setSubmitting(false);
     }
@@ -134,6 +154,11 @@ function ReviewDeveloper() {
       crumbs={[{ label: "Review Developer" }]}
     >
       <form className="surface mx-auto max-w-3xl space-y-7 p-6 sm:p-8" onSubmit={submit} noValidate>
+        {!user && (
+          <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
+            Sign in to submit a developer review.
+          </div>
+        )}
         <div className="space-y-7">
           {/* Name */}
           <div className="space-y-2">
