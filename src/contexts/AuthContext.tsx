@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -23,8 +23,11 @@ function readGuestFlag(): boolean {
 function writeGuestFlag(value: boolean): void {
   if (typeof window === "undefined") return;
   try {
-    if (value) window.localStorage.setItem(GUEST_STORAGE_KEY, "true");
-    else window.localStorage.removeItem(GUEST_STORAGE_KEY);
+    if (value) {
+      window.localStorage.setItem(GUEST_STORAGE_KEY, "true");
+    } else {
+      window.localStorage.removeItem(GUEST_STORAGE_KEY);
+    }
   } catch {
     /* storage unavailable (private mode) — guest flag just won't persist */
   }
@@ -51,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
 
     // getSession() rehydrates a persisted session and triggers the listener.
-    supabase.auth
-      .getSession()
+    supabase
+      .auth.getSession()
       .then(({ data }) => {
         setSession(data.session);
         setUser(data.session?.user ?? null);
@@ -67,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
-      // Signing in supersedes guest mode.
+
       if (newSession?.user) {
         setIsGuest(false);
         writeGuestFlag(false);
@@ -109,13 +112,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const signUpWithEmail = useCallback(async (params: SignUpWithEmailParams) => {
-    const result = await authService.signUpWithEmail(params);
-    // Creating an account ends any prior guest session.
-    setIsGuest(false);
-    writeGuestFlag(false);
-    return result;
-  }, []);
+  const signUpWithEmail = useCallback(
+    async (params: SignUpWithEmailParams) => {
+      const result = await authService.signUpWithEmail(params);
+      // Creating an account ends any prior guest session.
+      setIsGuest(false);
+      writeGuestFlag(false);
+      return result;
+    },
+    [],
+  );
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     await authService.signInWithEmail(email, password);
@@ -129,9 +135,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     writeGuestFlag(false);
   }, []);
 
-  const continueAsGuest = useCallback(() => {
-    setIsGuest(true);
-    writeGuestFlag(true);
+  const continueAsGuest = useCallback(async () => {
+    // Ensure a real anonymous Supabase session so this button always produces a
+    // usable auth.uid() for RLS-protected inserts. If anonymous sign-ins are
+    // disabled on the project and the call fails, fall back to the old
+    // localStorage-based guest path so the prototype remains usable.
+    await authService
+      .signInAnonymously()
+      .then(() => {
+        setIsGuest(true);
+        writeGuestFlag(true);
+      })
+      .catch(() => {
+        /* anonymous sign-ins disabled on the project — fall back to the old
+           localStorage path so the app remains usable. */
+        setIsGuest(true);
+        writeGuestFlag(true);
+      });
   }, []);
 
   const signOut = useCallback(async () => {

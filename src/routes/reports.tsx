@@ -85,8 +85,14 @@ function rowActions(r: Report, onDelete: () => void) {
             icon: Trash2,
             onClick: () => {
               onDelete();
-              notify.undoable("Report deleted", `${r.name} removed from history.`, () =>
-                notify.success("Undelete is limited in this demo", "This would call the API."),
+              notify.undoable(
+                "Report deleted",
+                `${r.name} removed from history.`,
+                () =>
+                  notify.success(
+                    "Undelete is limited in this demo",
+                    "This would call the API.",
+                  ),
               );
             },
           },
@@ -106,13 +112,13 @@ function Reports() {
   const [status, setStatus] = useState("all");
 
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (authLoading || !user) return;
 
     let cancelled = false;
     setLoading(true);
     setFailed(false);
 
-    listReports(user.id)
+    listReports(user!.id)
       .then((items) => {
         if (!cancelled) setRows(items);
       })

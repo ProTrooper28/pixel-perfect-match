@@ -85,16 +85,34 @@ const projectStatusClass = (status: string): string => {
 };
 
 function Dashboard() {
-  const { user, isLoading: authLoading, profile } = useAuth();
+  const {
+    user,
+    isLoading: authLoading,
+    profile,
+  } = useAuth();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [reportsList, setReportsList] = useState<Report[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [reportsList, setReportsList] = useState<ReportRow[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsFailed, setProjectsFailed] = useState(false);
 
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (authLoading) return;
+
+    if (!user) {
+      // No Supabase session: never query (guests have no user id to filter on).
+      // Guests render their browser-local submissions; signed-out visitors are
+      // already being redirected by RequireAuth.
+      if (!user) return;
+      setReportsList(listReports(user.id));
+      setProjects(listProjects(user.id));
+      setLoading(false);
+      setFailed(false);
+      setProjectsLoading(false);
+      setProjectsFailed(false);
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -102,7 +120,7 @@ function Dashboard() {
     setProjectsLoading(true);
     setProjectsFailed(false);
 
-    listReports(user.id)
+    listReports(user!.id)
       .then((rows) => {
         if (!cancelled) setReportsList(rows);
       })
@@ -113,7 +131,7 @@ function Dashboard() {
         if (!cancelled) setLoading(false);
       });
 
-    listProjects(user.id)
+    listProjects(user!.id)
       .then((rows) => {
         if (!cancelled) setProjects(rows);
       })
@@ -133,13 +151,13 @@ function Dashboard() {
     if (!user) return;
     setProjectsLoading(true);
     setProjectsFailed(false);
-    listProjects(user.id)
+    listProjects(user!.id)
       .then((rows) => setProjects(rows))
       .catch(() => setProjectsFailed(true))
       .finally(() => setProjectsLoading(false));
   };
 
-  const reportsListSafe: Report[] = reportsList.length > 0 ? reportsList : [];
+  const reportsListSafe: ReportRow[] = reportsList.length > 0 ? reportsList : [];
   const completed = reportsListSafe.filter((r) => r.status === "Completed");
   const avg =
     completed.length > 0

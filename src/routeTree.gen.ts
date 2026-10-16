@@ -23,7 +23,6 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ReportIdRouteImport } from './routes/report.$id'
 import { Route as ReviewDeveloperRouteImport } from './routes/review.developer'
-import { Route as ReviewProjectRouteImport } from './routes/review.project'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -95,11 +94,6 @@ const ReviewDeveloperRoute = ReviewDeveloperRouteImport.update({
   path: '/review/developer',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewProjectRoute = ReviewProjectRouteImport.update({
-  id: '/review/project',
-  path: '/review/project',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,7 +110,6 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
-  '/review/project': typeof ReviewProjectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -133,7 +126,6 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
-  '/review/project': typeof ReviewProjectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -151,7 +143,6 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
-  '/review/project': typeof ReviewProjectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -170,7 +161,6 @@ export interface FileRouteTypes {
     | '/terms'
     | '/report/$id'
     | '/review/developer'
-    | '/review/project'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -187,7 +177,6 @@ export interface FileRouteTypes {
     | '/terms'
     | '/report/$id'
     | '/review/developer'
-    | '/review/project'
   id:
     | '__root__'
     | '/'
@@ -204,7 +193,6 @@ export interface FileRouteTypes {
     | '/terms'
     | '/report/$id'
     | '/review/developer'
-    | '/review/project'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -222,7 +210,6 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ReportIdRoute: typeof ReportIdRoute
   ReviewDeveloperRoute: typeof ReviewDeveloperRoute
-  ReviewProjectRoute: typeof ReviewProjectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -325,13 +312,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewDeveloperRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/review/project': {
-      id: '/review/project'
-      path: '/review/project'
-      fullPath: '/review/project'
-      preLoaderRoute: typeof ReviewProjectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -350,7 +330,6 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ReportIdRoute: ReportIdRoute,
   ReviewDeveloperRoute: ReviewDeveloperRoute,
-  ReviewProjectRoute: ReviewProjectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

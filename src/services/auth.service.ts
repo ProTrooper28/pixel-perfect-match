@@ -61,6 +61,19 @@ export async function signOut(): Promise<void> {
   if (error) throw new Error(toAuthMessage(error));
 }
 
+/**
+ * Sign in anonymously for Guest mode.
+ *
+ * Creates a real `auth.users` row via the anonymous auth provider, so the user
+ * has a real `auth.uid()` and RLS-protected inserts to `profiles/projects/reports`
+ * work exactly like signed-in users.
+ */
+export async function signInAnonymously(): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.auth.signInAnonymously();
+  if (error) throw new Error(toAuthMessage(error));
+}
+
 /** Current session, or `null` when signed out. */
 export async function getSession(): Promise<Session | null> {
   const supabase = getSupabase();

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Download,
@@ -110,7 +111,19 @@ function BulletList({ items, icon }: { items: string[]; icon?: "check" | "cross"
 }
 
 function Report() {
-  const reportRow = Route.useLoaderData();
+  const loaderRow = Route.useLoaderData();
+  const { id } = Route.useParams();
+
+  // The loader can run on the server (or during hydration), where this browser's
+  // guest submissions do not exist. When it found nothing, look in the guest store
+  // again after mount so a refreshed guest report still opens. State starts null so
+  // the first client render matches the server HTML.
+  const [guestRow, setGuestRow] = useState<GuestReport | null>(null);
+  useEffect(() => {
+    setGuestRow(loaderRow ? null : getGuestReport(id));
+  }, [loaderRow, id]);
+
+  const reportRow = loaderRow ?? guestRow;
 
   if (!reportRow) {
     return (
