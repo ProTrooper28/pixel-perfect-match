@@ -9,7 +9,10 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Compass, Home, LayoutDashboard } from "lucide-react";
 
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { BackToTop } from "@/components/layout/BackToTop";
@@ -17,21 +20,38 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 function NotFoundComponent() {
+  const { isAuthenticated } = useAuth();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-16">
+      <div className="grid-bg pointer-events-none absolute inset-0" aria-hidden />
+      <div className="relative max-w-lg text-center">
+        <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary/15 text-primary">
+          <Compass className="h-8 w-8" aria-hidden />
+        </span>
+        <p className="text-gradient mt-6 font-mono text-7xl font-semibold tabular-nums sm:text-8xl">
+          404
         </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
+        <h1 className="mt-4 text-2xl font-semibold text-foreground">
+          This page drifted off the map
+        </h1>
+        <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+          The page you're looking for was moved, renamed, or never existed. Every BuildLens
+          investigation is still waiting for you — head back and pick up where you left off.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Button asChild>
+            <Link to="/">
+              <Home className="h-4 w-4" aria-hidden /> Back to Home
+            </Link>
+          </Button>
+          {isAuthenticated && (
+            <Button asChild variant="outline">
+              <Link to="/dashboard">
+                <LayoutDashboard className="h-4 w-4" aria-hidden /> Go to Dashboard
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -87,7 +107,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Analyze projects, verify claims and generate structured technical reports.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "BuildLens" },
+      { property: "og:image", content: "/og-image.png" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "BuildLens — evidence-based technical evaluation" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "BuildLens — Evidence-Based Technical Evaluation" },
+      {
+        name: "twitter:description",
+        content: "Analyze projects, verify claims and generate structured technical reports.",
+      },
+      { name: "twitter:image", content: "/og-image.png" },
+      { name: "theme-color", content: "#0b0f14" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -98,6 +130,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "alternate icon", href: "/favicon.ico", sizes: "any" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "manifest", href: "/site.webmanifest" },
     ],
   }),
   shellComponent: RootShell,

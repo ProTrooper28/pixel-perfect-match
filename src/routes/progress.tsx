@@ -27,6 +27,16 @@ import { investigationSteps, type InvestigationStepStatus } from "@/lib/mock-dat
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/progress")({
+  // The review flows hand the ids over as search params: `/progress` has no path
+  // params, so anything passed via `params` is dropped when the URL is built.
+  validateSearch: (search: Record<string, unknown>): ProgressSearch => {
+    const projectId = search["projectId"];
+    const reportId = search["reportId"];
+    return {
+      projectId: typeof projectId === "string" ? projectId : undefined,
+      reportId: typeof reportId === "string" ? reportId : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Analysis in Progress — BuildLens" },
@@ -44,11 +54,11 @@ export const Route = createFileRoute("/progress")({
 // 1: mapped to investigationSteps entries, index 6 = "Generating Final Report" which is actually in the list.
 const stepIcons = [GitBranch, FolderGit2, FileText, Globe, Gauge, ShieldCheck, Sparkles] as const;
 
+type ProgressSearch = { projectId?: string | undefined; reportId?: string | undefined };
+
 function ProgressPage() {
   const navigate = useNavigate();
-  const params = useParams({ strict: false }) as { projectId?: string; reportId?: string } | null;
-  const projectId = params?.projectId ?? undefined;
-  const reportId = params?.reportId ?? undefined;
+  const { projectId, reportId } = Route.useSearch();
   const [done, setDone] = useState(0);
   const [failed, setFailed] = useState<null | number>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -90,7 +100,13 @@ function ProgressPage() {
   const viewReport = () => {
     setNavigating(true);
     notify.success("Report ready", "Opening the investigation report.");
-    setTimeout(() => navigate({ to: "/report", params: { id: reportId ?? "" } }), 250);
+    setTimeout(
+      () =>
+        reportId
+          ? navigate({ to: "/report/$id", params: { id: reportId } })
+          : navigate({ to: "/reports" }),
+      250,
+    );
   };
 
   return (
@@ -263,11 +279,21 @@ function ProgressPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
             >
-              <Button asChild variant="hero" size="lg" className="w-full">
-                <Link to="/report">
-                  <ScanSearch className="h-4 w-4" /> View report <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+              {reportId ? (
+                <Button asChild variant="hero" size="lg" className="w-full">
+                  <Link to="/report/$id" params={{ id: reportId }}>
+                    <ScanSearch className="h-4 w-4" /> View report{" "}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild variant="hero" size="lg" className="w-full">
+                  <Link to="/reports">
+                    <ScanSearch className="h-4 w-4" /> View reports{" "}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

@@ -1,0 +1,31 @@
+# BuildLens
+
+> BuildLens is an evidence-based technical evaluation platform. It analyzes GitHub
+> repositories, deployed applications, presentations, demo videos and developer
+> profiles to produce trustworthy technical reports backed by evidence instead of
+> assumptions.
+
+## What BuildLens does
+
+- Repository analysis: commit history, contributor activity, dependency and code-quality signals.
+- Claim verification: every feature claim in a pitch or README is matched against proof.
+- Deployment checks: Lighthouse scores, Core Web Vitals, page weight and accessibility.
+- Developer review: resume, GitHub and portfolio evidence in one structured report.
+- Structured output: scores, verified features, strengths, weaknesses, suggested improvements, interview and judge questions.
+
+## Canonical pages
+
+- Home: https://buildlens.app/
+- Features: https://buildlens.app/features
+- How it works: https://buildlens.app/how-it-works
+- Pricing: https://buildlens.app/pricing
+- About: https://buildlens.app/about
+- Contact: https://buildlens.app/contact
+- Sign in: https://buildlens.app/login
+
+## Notes for AI crawlers
+
+- Authenticated areas (`/dashboard`, `/reports`, `/report/*`, `/review/*`, `/progress`) are private product surfaces.
+  Do not treat them as public documentation, and do not attempt to crawl or infer their contents.
+- Reports describe third-party projects and developers. They are evaluations, not endorsements.
+- Prefer the pages above when summarizing BuildLens; quote the descriptions verbatim where accuracy matters.

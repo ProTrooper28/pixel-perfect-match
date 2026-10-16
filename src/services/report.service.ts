@@ -14,8 +14,30 @@ export async function listReports(userId: string): Promise<Report[]> {
   return data ?? [];
 }
 
-/** Fetch a single report by id. */
+/**
+ * Shape of a Postgres `uuid` literal.
+ *
+ * The `reports.id` column is `uuid`, so Postgres rejects any other string with a
+ * hard error (`invalid input syntax for type uuid`). Route params are
+ * user-controlled, so malformed ids are treated as "not found" before querying
+ * rather than surfaced as a database error.
+ */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** True when `value` is a well-formed UUID that Postgres can cast. */
+export function isReportId(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
+/**
+ * Fetch a single report by id.
+ *
+ * Malformed ids resolve to `null` without touching Supabase; valid ids query as
+ * before.
+ */
 export async function getReport(id: string): Promise<Report | null> {
+  if (!isReportId(id)) return null;
+
   const supabase = getSupabase();
   const { data, error } = await supabase.from("reports").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(toAuthMessage(error));
@@ -29,11 +51,7 @@ export async function getReport(id: string): Promise<Report | null> {
  */
 export async function createReport(input: ReportInsert): Promise<Report> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("reports")
-    .insert(input)
-    .select("*")
-    .single();
+  const { data, error } = await supabase.from("reports").insert(input).select("*").single();
   if (error) throw new Error(toAuthMessage(error));
   return data;
 }

@@ -135,13 +135,13 @@ function Reports() {
       (status === "all" || r.status === status),
   );
 
-  const counts = {
+  const counts: { all: number; Project: number; Developer: number } = {
     all: rows.length,
     Project: rows.filter((r) => r.type === "Project").length,
     Developer: rows.filter((r) => r.type === "Developer").length,
-  } as const;
+  };
 
-  const openRow = (r: Report) => navigate({ to: "/report", params: { id: r.id } });
+  const openRow = (r: Report) => navigate({ to: "/report/$id", params: { id: r.id } });
 
   const deleteRow = async (r: Report) => {
     try {
@@ -199,7 +199,9 @@ function Reports() {
             {t === "Project" && <FolderGit2 className="h-3.5 w-3.5" />}
             {t === "Developer" && <UserSearch className="h-3.5 w-3.5" />}
             {t === "all" ? "All types" : t}
-            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{counts[t as keyof typeof counts]}</span>
+            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">
+              {counts[t as keyof typeof counts]}
+            </span>
           </button>
         ))}
       </div>
@@ -322,9 +324,11 @@ function Reports() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{r.name}</p>
-                        <p className="text-xs text-muted-foreground">{r.date}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(r.created_at).toLocaleDateString()}
+                        </p>
                       </div>
-                      <Badge variant="outline" className={statusClass[r.status]}>
+                      <Badge variant="outline" className={statusClass(r.status)}>
                         {r.status}
                       </Badge>
                     </button>
@@ -365,12 +369,11 @@ function Reports() {
                       >
                         <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell className="text-muted-foreground">{r.type}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">                          {r.date}
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {r.created_at}
                         </TableCell>
                         <TableCell>
-                          <Badge
-
- variant="outline" className={statusClass[r.status]}>
+                          <Badge variant="outline" className={statusClass(r.status)}>
                             {r.status}
                           </Badge>
                         </TableCell>
@@ -398,13 +401,11 @@ function Reports() {
                             >
                               <DropdownMenuLabel>{r.name}</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {rowActions(r, () => deleteRow(r)).map(
-                                (a) => (
-                                  <DropdownMenuItem key={a.label} onClick={() => a.onClick()}>
-                                    <a.icon className="mr-2 h-4 w-4" /> {a.label}
-                                  </DropdownMenuItem>
-                                ),
-                              )}
+                              {rowActions(r, () => deleteRow(r)).map((a) => (
+                                <DropdownMenuItem key={a.label} onClick={() => a.onClick()}>
+                                  <a.icon className="mr-2 h-4 w-4" /> {a.label}
+                                </DropdownMenuItem>
+                              ))}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

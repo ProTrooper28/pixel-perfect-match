@@ -19,12 +19,12 @@ export const Route = createFileRoute("/login")({
       {
         name: "description",
         content:
-          "Sign in to BuildLens with Google or GitHub, or explore as a guest with demo investigations.",
+          "Sign in to BuildLens with Google or GitHub, or explore sample investigations as a guest.",
       },
       { property: "og:title", content: "Sign in — BuildLens" },
       {
         property: "og:description",
-        content: "Sign in to BuildLens, or explore demo investigations as a guest.",
+        content: "Sign in to BuildLens, or explore sample investigations as a guest.",
       },
     ],
     links: [
@@ -212,7 +212,7 @@ function Login() {
           </p>
 
           <p className="authHelper">
-            Guest Mode lets you explore BuildLens using demo investigations without signing in.
+            Guest Mode lets you explore BuildLens with sample investigations, no account required.
           </p>
         </div>
 

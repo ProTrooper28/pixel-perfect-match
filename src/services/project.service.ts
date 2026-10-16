@@ -29,11 +29,7 @@ export async function getProject(id: string): Promise<Project | null> {
  */
 export async function createProject(input: ProjectInsert): Promise<Project> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("projects")
-    .insert(input)
-    .select("*")
-    .single();
+  const { data, error } = await supabase.from("projects").insert(input).select("*").single();
   if (error) throw new Error(toAuthMessage(error));
   return data;
 }

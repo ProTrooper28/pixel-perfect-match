@@ -1,4 +1,4 @@
-import { createFileRoute, useLoaderData, useParams, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
   Download,
@@ -45,37 +45,28 @@ import { Separator } from "@/components/ui/separator";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { ReportSection } from "@/components/report/ReportSection";
-import { useAuth } from "@/hooks/useAuth";
 import { getReport } from "@/services/report.service";
-import type { Report } from "@/types/database";
-import type { Json } from "@/types/database";
+import type { Report as ReportRow } from "@/types/database";
+import { report as reportDefaults } from "@/lib/mock-data";
 import { notify } from "@/lib/toast-messages";
 
-export const Route = createFileRoute("/report")({
-  head: ({ resolvedParams }) => {
-    const id = resolvedParams.id;
-    return {
-      meta: [
-        { title: id ? `Technical Report — BuildLens` : `Technical Report — BuildLens` },
-        {
-          name: "description",
-          content: id
-            ? "Scores, verified features, strengths, weaknesses and questions for the evaluated project."
-            : "An evidence-based technical evaluation report.",
-        },
-        { property: "og:title", content: id ? `Technical Report — BuildLens` : `Technical Report — BuildLens` },
-        { property: "og:description", content: id ? "Viewing a BuildLens report." : "An evidence-based technical evaluation report." },
-      ],
-    };
-  },
+export const Route = createFileRoute("/report/$id")({
+  head: () => ({
+    meta: [
+      { title: "Technical Report — BuildLens" },
+      {
+        name: "description",
+        content:
+          "Scores, verified features, strengths, weaknesses and questions for the evaluated project.",
+      },
+      { property: "og:title", content: "Technical Report — BuildLens" },
+      { property: "og:description", content: "Viewing a BuildLens report." },
+    ],
+  }),
   component: Report,
-  loader: async ({ resolvedParams }) => {
-    const id = resolvedParams.id;
-    if (!id) return null;
-
+  loader: async ({ params }): Promise<ReportRow | null> => {
     try {
-      const reportRow = await getReport(id);
-      return reportRow;
+      return await getReport(params.id);
     } catch (error) {
       console.error(error);
       return null;
@@ -83,15 +74,22 @@ export const Route = createFileRoute("/report")({
   },
 });
 
+/** Format an ISO timestamp as a short, locale-aware date. */
+function formatDate(value: string | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
 
 const listIcon = "mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary";
 
 function BulletList({ items, icon }: { items: string[]; icon?: "check" | "cross" }) {
   return (
     <ul className="space-y-2.5">
-      {items.map((i, k) => (
+      {items.map((item, k) => (
         <motion.li
-          key={i}
+          key={item}
           initial={{ opacity: 0, x: -4 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: k * 0.04 }}
@@ -104,7 +102,7 @@ function BulletList({ items, icon }: { items: string[]; icon?: "check" | "cross"
           ) : (
             <span className={listIcon} />
           )}
-          {i}
+          {item}
         </motion.li>
       ))}
     </ul>
@@ -112,18 +110,9 @@ function BulletList({ items, icon }: { items: string[]; icon?: "check" | "cross"
 }
 
 function Report() {
-  const reportRow = useLoaderData<Report | null>();
-  const repo = reportRow?.report_data?.repositoryDetail ?? report.repositoryDetail;
-  const web = reportRow?.report_data?.websiteDetail ?? report.websiteDetail;
-  const inn = reportRow?.report_data?.innovation ?? report.innovation;
+  const reportRow = Route.useLoaderData();
 
-  const repoUrl = reportRow?.report_data?.repoUrl ?? report.repoUrl;
-  const repoName = reportRow?.report_data?.repo ?? report.repo;
-  const websiteUrl = reportRow?.report_data?.websiteUrl ?? report.websiteUrl;
-
-  const missing = !reportRow;
-
-  if (missing) {
+  if (!reportRow) {
     return (
       <AppLayout
         title="Report not found"
@@ -142,6 +131,26 @@ function Report() {
     );
   }
 
+  // Report payloads are stored as JSON; merge whatever the row carries over the
+  // default section shapes so every section renders without blank fields.
+  const stored = (reportRow.report_data ?? {}) as unknown as Partial<typeof reportDefaults>;
+  const report = {
+    ...reportDefaults,
+    ...stored,
+    project: reportRow.name,
+    overview: { ...reportDefaults.overview, ...(stored.overview ?? {}) },
+    repositoryDetail: { ...reportDefaults.repositoryDetail, ...(stored.repositoryDetail ?? {}) },
+    websiteDetail: { ...reportDefaults.websiteDetail, ...(stored.websiteDetail ?? {}) },
+    innovation: { ...reportDefaults.innovation, ...(stored.innovation ?? {}) },
+  };
+
+  const repo = report.repositoryDetail;
+  const web = report.websiteDetail;
+  const inn = report.innovation;
+
+  const repoUrl = report.repoUrl;
+  const websiteUrl = report.websiteUrl;
+
   const copyLink = () => {
     notify.copied("report link");
   };
@@ -155,12 +164,10 @@ function Report() {
   };
 
   return (
-    <AppLayout      title={reportRow?.name ?? report.project}
-      subtitle={`${reportRow?.project_id ? "Project report" : "Developer report"} · Generated ${(new Date(reportRow?.created_at ?? report.created_at)).toISOString().slice(0, 10)}`}
-        crumbs={[
-          { label: "Reports", to: "/reports" },
-          { label: reportRow?.name ?? `Atlas — Climate Risk Dashboard` },
-        ]}
+    <AppLayout
+      title={reportRow.name}
+      subtitle={`${reportRow.project_id ? "Project report" : "Developer report"} · Generated ${formatDate(reportRow.created_at)}`}
+      crumbs={[{ label: "Reports", to: "/reports" }, { label: reportRow.name }]}
 
       actions={
         <div className="flex flex-wrap gap-2">
@@ -263,19 +270,20 @@ function Report() {
               </div>
             </div>
           </ReportSection>
-
           <ReportSection
             value="repo"
             title="Repository"
             icon={<Github className="h-4 w-4" />}
             count={repo.contributors}
-          >              <a
-              href={reportRow?.report_data?.repoUrl ?? report.repoUrl}
+          >
+            {" "}
+            <a
+              href={repoUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
-              {repoName} <ExternalLink className="h-3.5 w-3.5" />
+              {report.repo} <ExternalLink className="h-3.5 w-3.5" />
             </a>
             <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
               {[
@@ -345,59 +353,58 @@ function Report() {
               </div>
             </div>
             <ul className="mt-4 space-y-2">
-              {repo.codeQualityNotes.map((n) => (
+              {" "}
+              {repo.codeQualityNotes?.map((n) => (
                 <li key={n} className="flex gap-2 text-sm text-muted-foreground">
                   <Check className="mt-0.5 h-4 w-4 text-success" /> {n}
                 </li>
               ))}
+              {repo.commitActivity?.map((day, i) => (
+                <div key={i} className="text-sm text-muted-foreground">
+                  {day.day}: {day.commits} commits
+                </div>
+              ))}
             </ul>
           </ReportSection>
-
           <ReportSection value="website" title="Website" icon={<Globe className="h-4 w-4" />}>
             <a
-              href={reportRow?.report_data?.websiteUrl ?? report.websiteUrl}
+              href={websiteUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
-              {reportRow?.report_data?.websiteUrl ?? report.websiteUrl} <ExternalLink className="h-3.5 w-3.5" />
+              {websiteUrl} <ExternalLink className="h-3.5 w-3.5" />
             </a>
             <Badge variant="outline" className="ml-3 border-success/30 bg-success/10 text-success">
-              {web.status}
+              {web.status ?? "Unknown"}
             </Badge>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {Object.entries(web.lighthouse).map(([k, v]: [string, number]) => (
-                <div key={k} className="rounded-lg border border-border bg-muted/30 p-4">
-                  <p className="text-xs capitalize text-muted-foreground">{k}</p>
-                  <p className={`mt-1 text-2xl font-semibold tabular-nums ${scoreTone(v)}`}>{v}</p>
-                  <Progress value={v} className="mt-2 h-1" />
-                </div>
-              ))}
+              {Object.entries(web.lighthouse).map(([k, v]) => {
+                const score = Number.isFinite(Number(v)) ? Number(v) : 0;
+                return (
+                  <div key={k} className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-xs capitalize text-muted-foreground">{k}</p>
+                    <p className={`mt-1 text-2xl font-semibold tabular-nums ${scoreTone(score)}`}>
+                      {score}
+                    </p>
+                    <Progress value={score} className="mt-2 h-1" />
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-4 flex flex-wrap gap-6 text-sm text-muted-foreground">
               <span>
-                LCP{" "}
-                <strong className="text-foreground">
-                  {web.vitals[0]?.value}
-                  {web.vitals[0]?.unit}
-                </strong>
+                LCP {web.vitals[0]?.value ?? "—"}
+                {web.vitals[0]?.unit ?? ""}
               </span>
               <span>
-                INP{" "}
-                <strong className="text-foreground">
-                  {web.vitals[1]?.value}
-                  {web.vitals[1]?.unit}
-                </strong>
+                INP {web.vitals[1]?.value ?? "—"}
+                {web.vitals[1]?.unit ?? ""}
               </span>
-              <span>
-                CLS <strong className="text-foreground">{web.vitals[2]?.value}</strong>
-              </span>
-              <span>
-                Page weight <strong className="text-foreground">{web.pageWeightMb} MB</strong>
-              </span>
+              <span>CLS {web.vitals[2]?.value ?? "—"}</span>
+              <span>Page weight {web.pageWeightMb ?? "—"} MB</span>
             </div>
           </ReportSection>
-
           <ReportSection
             value="performance"
             title="Performance"
@@ -439,8 +446,7 @@ function Report() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </ReportSection>
-
+          </ReportSection>{" "}
           <ReportSection
             value="claims"
             title="Claim Verification"
@@ -476,13 +482,13 @@ function Report() {
               ))}
             </ul>
           </ReportSection>
-
           <ReportSection
             value="innovation"
             title="Innovation"
             icon={<Sparkles className="h-4 w-4" />}
             tone="success"
           >
+            {" "}
             <div className="grid gap-5 lg:grid-cols-2">
               <div>
                 <div className="flex items-baseline gap-2">
@@ -528,14 +534,13 @@ function Report() {
             </div>
             <Separator className="my-4" />
             <ul className="space-y-2">
-              {inn.markers.map((m) => (
+              {inn.markers?.map((m) => (
                 <li key={m.label} className="text-sm text-muted-foreground">
                   <strong className="text-foreground">{m.label}:</strong> {m.detail}
                 </li>
               ))}
             </ul>
           </ReportSection>
-
           <ReportSection
             value="strengths"
             title="Strengths"
@@ -545,7 +550,6 @@ function Report() {
           >
             <BulletList items={report.strengths} icon="check" />
           </ReportSection>
-
           <ReportSection
             value="weaknesses"
             title="Weaknesses"
@@ -555,7 +559,6 @@ function Report() {
           >
             <BulletList items={report.weaknesses} icon="cross" />
           </ReportSection>
-
           <ReportSection
             value="improvements"
             title="Suggestions"
@@ -565,7 +568,6 @@ function Report() {
           >
             <BulletList items={report.improvements} />
           </ReportSection>
-
           <ReportSection
             value="interview"
             title="Interview Questions"
@@ -590,7 +592,6 @@ function Report() {
               ))}
             </ol>
           </ReportSection>
-
           <ReportSection
             value="judge"
             title="Judge Questions"
@@ -615,7 +616,6 @@ function Report() {
               ))}
             </ol>
           </ReportSection>
-
           <ReportSection
             value="timeline"
             title="Timeline"

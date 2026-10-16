@@ -19,9 +19,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProgressRouteImport } from './routes/progress'
-import { Route as ReportRouteImport } from './routes/report'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ReportIdRouteImport } from './routes/report.$id'
 import { Route as ReviewDeveloperRouteImport } from './routes/review.developer'
 import { Route as ReviewProjectRouteImport } from './routes/review.project'
 
@@ -75,11 +75,6 @@ const ProgressRoute = ProgressRouteImport.update({
   path: '/progress',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportRoute = ReportRouteImport.update({
-  id: '/report',
-  path: '/report',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -88,6 +83,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportIdRoute = ReportIdRouteImport.update({
+  id: '/report/$id',
+  path: '/report/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReviewDeveloperRoute = ReviewDeveloperRouteImport.update({
@@ -112,9 +112,9 @@ export interface FileRoutesByFullPath {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/progress': typeof ProgressRoute
-  '/report': typeof ReportRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
 }
@@ -129,9 +129,9 @@ export interface FileRoutesByTo {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/progress': typeof ProgressRoute
-  '/report': typeof ReportRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
 }
@@ -147,9 +147,9 @@ export interface FileRoutesById {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/progress': typeof ProgressRoute
-  '/report': typeof ReportRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
 }
@@ -166,9 +166,9 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/progress'
-    | '/report'
     | '/reports'
     | '/terms'
+    | '/report/$id'
     | '/review/developer'
     | '/review/project'
   fileRoutesByTo: FileRoutesByTo
@@ -183,9 +183,9 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/progress'
-    | '/report'
     | '/reports'
     | '/terms'
+    | '/report/$id'
     | '/review/developer'
     | '/review/project'
   id:
@@ -200,9 +200,9 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/progress'
-    | '/report'
     | '/reports'
     | '/terms'
+    | '/report/$id'
     | '/review/developer'
     | '/review/project'
   fileRoutesById: FileRoutesById
@@ -218,9 +218,9 @@ export interface RootRouteChildren {
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   ProgressRoute: typeof ProgressRoute
-  ReportRoute: typeof ReportRoute
   ReportsRoute: typeof ReportsRoute
   TermsRoute: typeof TermsRoute
+  ReportIdRoute: typeof ReportIdRoute
   ReviewDeveloperRoute: typeof ReviewDeveloperRoute
   ReviewProjectRoute: typeof ReviewProjectRoute
 }
@@ -297,13 +297,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProgressRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/report': {
-      id: '/report'
-      path: '/report'
-      fullPath: '/report'
-      preLoaderRoute: typeof ReportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/reports': {
       id: '/reports'
       path: '/reports'
@@ -316,6 +309,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/report/$id': {
+      id: '/report/$id'
+      path: '/report/$id'
+      fullPath: '/report/$id'
+      preLoaderRoute: typeof ReportIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/review/developer': {
@@ -346,9 +346,9 @@ const rootRouteChildren: RootRouteChildren = {
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   ProgressRoute: ProgressRoute,
-  ReportRoute: ReportRoute,
   ReportsRoute: ReportsRoute,
   TermsRoute: TermsRoute,
+  ReportIdRoute: ReportIdRoute,
   ReviewDeveloperRoute: ReviewDeveloperRoute,
   ReviewProjectRoute: ReviewProjectRoute,
 }

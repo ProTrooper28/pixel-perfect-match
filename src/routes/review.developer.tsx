@@ -65,7 +65,14 @@ function ReviewDeveloper() {
 
   const resumeReady = resumeStatus === "success";
   const canSubmit = useMemo(
-    () => nameValid && linkedinValid && githubValid && portfolioValid && codingValid && resumeReady && !!user,
+    () =>
+      nameValid &&
+      linkedinValid &&
+      githubValid &&
+      portfolioValid &&
+      codingValid &&
+      resumeReady &&
+      !!user,
     [nameValid, githubValid, linkedinValid, portfolioValid, codingValid, resumeReady, user],
   );
 
@@ -104,7 +111,7 @@ function ReviewDeveloper() {
       });
 
       notify.success("Candidate submitted", `${report.name} is queued for review.`);
-      navigate({ to: "/progress", params: { reportId: report.id } });
+      navigate({ to: "/progress", search: { reportId: report.id } });
     } catch (error) {
       notify.error("Submission failed", "We couldn't start this developer review.");
     } finally {

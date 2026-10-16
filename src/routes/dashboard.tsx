@@ -22,7 +22,8 @@ import { CardRowSkeleton } from "@/components/state/skeletons";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
 import { listReports } from "@/services/report.service";
-import type { Report } from "@/types/database";
+import { listProjects } from "@/services/project.service";
+import type { Project, Report } from "@/types/database";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/dashboard")({
@@ -71,13 +72,26 @@ const statusClass = (status: string): string => {
   return "border-muted bg-muted/50 text-muted-foreground";
 };
 
+const projectStatusLabel = (status: string): string => {
+  if (status === "completed") return "Completed";
+  if (status === "in_review") return "In review";
+  return "Draft";
+};
 
+const projectStatusClass = (status: string): string => {
+  if (status === "completed") return "border-success/30 bg-success/10 text-success";
+  if (status === "in_review") return "border-warning/30 bg-warning/10 text-warning";
+  return "border-muted bg-muted/50 text-muted-foreground";
+};
 
 function Dashboard() {
   const { user, isLoading: authLoading, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [reportsList, setReportsList] = useState<Report[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsFailed, setProjectsFailed] = useState(false);
 
   useEffect(() => {
     if (!user || authLoading) return;
@@ -85,6 +99,8 @@ function Dashboard() {
     let cancelled = false;
     setLoading(true);
     setFailed(false);
+    setProjectsLoading(true);
+    setProjectsFailed(false);
 
     listReports(user.id)
       .then((rows) => {
@@ -97,12 +113,33 @@ function Dashboard() {
         if (!cancelled) setLoading(false);
       });
 
+    listProjects(user.id)
+      .then((rows) => {
+        if (!cancelled) setProjects(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setProjectsFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setProjectsLoading(false);
+      });
+
     return () => {
       cancelled = true;
     };
   }, [user, authLoading]);
 
-  const reportsListSafe = reportsList.length > 0 ? reportsList : [];
+  const retryProjects = () => {
+    if (!user) return;
+    setProjectsLoading(true);
+    setProjectsFailed(false);
+    listProjects(user.id)
+      .then((rows) => setProjects(rows))
+      .catch(() => setProjectsFailed(true))
+      .finally(() => setProjectsLoading(false));
+  };
+
+  const reportsListSafe: Report[] = reportsList.length > 0 ? reportsList : [];
   const completed = reportsListSafe.filter((r) => r.status === "Completed");
   const avg =
     completed.length > 0
@@ -135,7 +172,11 @@ function Dashboard() {
   return (
     <AppLayout
       title="Good evening"
-      subtitle={profile?.full_name ? `Welcome back, ${profile.full_name.split(" ")[0]}.` : "What would you like to evaluate today?"}
+      subtitle={
+        profile?.full_name
+          ? `Welcome back, ${profile.full_name.split(" ")[0]}.`
+          : "What would you like to evaluate today?"
+      }
       crumbs={[{ label: "Dashboard" }]}
     >
       {/* Stats strip */}
@@ -153,7 +194,10 @@ function Dashboard() {
               onRetry={() => {
                 setLoading(true);
                 setFailed(false);
-                listReports(user!.id).then((rows) => setReportsList(rows)).catch(() => setFailed(true)).finally(() => setLoading(false));
+                listReports(user!.id)
+                  .then((rows) => setReportsList(rows))
+                  .catch(() => setFailed(true))
+                  .finally(() => setLoading(false));
               }}
             />
           </div>
@@ -223,6 +267,117 @@ function Dashboard() {
         )}
       </section>
 
+      {/* Projects */}
+      <section aria-label="Your projects" className="mb-10">
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Projects</h2>
+            <p className="text-sm text-muted-foreground">
+              Repositories, live sites and pitch materials you've submitted.
+            </p>
+          </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/review/project">
+              New project <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+
+        {projectsLoading ? (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="surface space-y-3 p-6">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            ))}
+          </div>
+        ) : projectsFailed ? (
+          <div className="surface">
+            <ErrorState
+              compact
+              title="Projects unavailable"
+              description="Your projects didn't come through."
+              onRetry={retryProjects}
+              className="rounded-none"
+            />
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="surface">
+            <EmptyState
+              className="rounded-none"
+              icon={<FolderGit2 />}
+              title="No projects yet"
+              description="Submit a repository, live site and presentation to start a project review."
+              action={
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/review/project">Review a project</Link>
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {projects.map((p, i) => (
+              <motion.article
+                key={p.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="surface flex flex-col p-6"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-medium">{p.name}</h3>
+                  <Badge variant="outline" className={projectStatusClass(p.status)}>
+                    {projectStatusLabel(p.status)}
+                  </Badge>
+                </div>
+                {p.description ? (
+                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.description}</p>
+                ) : null}
+                <dl className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+                  {p.repo_url ? (
+                    <div className="flex items-center gap-2">
+                      <dt className="sr-only">Repository</dt>
+                      <dd className="min-w-0 truncate">
+                        <a
+                          href={p.repo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-foreground hover:underline"
+                        >
+                          {p.repo_url}
+                        </a>
+                      </dd>
+                    </div>
+                  ) : null}
+                  {p.website_url ? (
+                    <div className="flex items-center gap-2">
+                      <dt className="sr-only">Live site</dt>
+                      <dd className="min-w-0 truncate">
+                        <a
+                          href={p.website_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-foreground hover:underline"
+                        >
+                          {p.website_url}
+                        </a>
+                      </dd>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center gap-2">
+                    <dt className="sr-only">Submitted</dt>
+                    <dd>Submitted {new Date(p.created_at).toLocaleDateString()}</dd>
+                  </div>
+                </dl>
+              </motion.article>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Recent activity */}
       <section aria-label="Recent reports" className="mb-10">
         <div className="mb-4 flex items-end justify-between">
@@ -289,7 +444,8 @@ function Dashboard() {
                   transition={{ delay: i * 0.05 }}
                 >
                   <Link
-                    to="/report"
+                    to="/report/$id"
+                    params={{ id: r.id }}
                     className="flex items-center gap-4 px-4 py-4 transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   >
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted">

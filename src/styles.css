@@ -37,7 +37,7 @@
   --shadow-glow: var(--glow);
   --shadow-card: var(--card-shadow);
 }
-//contribution
+
 :root {
   --radius: 0.75rem;
   --background: oklch(0.985 0.002 260);

@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { FileDrop, type FileDropStatus } from "@/components/FileDrop";
 import { useAuth } from "@/hooks/useAuth";
 import { createProjectForUser } from "@/services/project.service";
+import { createReportForUser } from "@/services/report.service";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/review/project")({
@@ -88,8 +89,22 @@ function ReviewProject() {
         status: "draft",
       });
 
+      // The investigation produces a report for this project; create it through the
+      // report service so /progress can carry its real id on to /report/$id.
+      const report = await createReportForUser(user.id, {
+        type: "Project",
+        name: project.name,
+        project_id: project.id,
+        status: "In Progress",
+        report_data: {
+          repo_url: project.repo_url,
+          website_url: project.website_url,
+          description: project.description,
+        },
+      });
+
       notify.success("Project submitted", `${project.name} is queued for investigation.`);
-      navigate({ to: "/progress", params: { projectId: project.id } });
+      navigate({ to: "/progress", search: { projectId: project.id, reportId: report.id } });
     } catch (error) {
       notify.error("Submission failed", "We couldn't create this project review.");
     } finally {

@@ -72,7 +72,7 @@ export async function ensureProfile(user: User): Promise<Profile | null> {
       throw error;
     }
 
-    return data ?? await getProfile(user.id);
+    return data ?? (await getProfile(user.id));
   } catch (error) {
     // Be conservative: if anything goes wrong during the defensive upsert, fall
     // back to a normal fetch so the app can still render the profile when it
@@ -80,7 +80,6 @@ export async function ensureProfile(user: User): Promise<Profile | null> {
     return getProfile(user.id);
   }
 }
-
 
 /** Update a profile row and return the updated record. */
 export async function updateProfile(userId: string, patch: ProfileUpdate): Promise<Profile> {

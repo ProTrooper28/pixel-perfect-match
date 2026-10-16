@@ -1,0 +1,23 @@
+{
+  "name": "BuildLens — Evidence-Based Technical Evaluation",
+  "short_name": "BuildLens",
+  "description": "Analyze repositories, deployments, presentations and developer profiles to generate technical reports backed by evidence.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
