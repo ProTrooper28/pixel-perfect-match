@@ -7,24 +7,37 @@ import {
   Check,
   ChevronRight,
   Circle,
+  ExternalLink,
+  FileText,
+  FolderGit2,
+  Gauge,
   GitBranch,
   Globe,
-  FileText,
-  Gauge,
+  Loader2,
   ScanSearch,
   ShieldCheck,
   Sparkles,
   Timer,
-  FolderGit2,
-  Loader2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { EmptyState } from "@/components/state/EmptyState";
 import { ErrorState } from "@/components/state/ErrorState";
-import { investigationSteps, type InvestigationStepStatus } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/useAuth";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { getProject } from "@/services/project.service";
+import { getReport } from "@/services/report.service";
+import {
+  getGuestProject,
+  getGuestReport,
+  type GuestProject,
+  type GuestReport,
+} from "@/services/guest.service";
+import { normalizeReportStatus } from "@/lib/report-data";
 import { notify } from "@/lib/toast-messages";
+import type { Project, Report } from "@/types/database";
 
 export const Route = createFileRoute("/progress")({
   // The review flows hand the ids over as search params: `/progress` has no path
@@ -51,50 +64,159 @@ export const Route = createFileRoute("/progress")({
   component: ProgressPage,
 });
 
-// 1: mapped to investigationSteps entries, index 6 = "Generating Final Report" which is actually in the list.
-const stepIcons = [GitBranch, FolderGit2, FileText, Globe, Gauge, ShieldCheck, Sparkles] as const;
-
 type ProgressSearch = { projectId?: string | undefined; reportId?: string | undefined };
+
+type ProjectRow = Project | GuestProject;
+type ReportRow = Report | GuestReport;
+
+/** Investigation steps — titles and icons only; details are derived from real data. */
+const STEPS = [
+  { key: "connect", title: "Connecting Repository", icon: GitBranch },
+  { key: "files", title: "Reading Files", icon: FolderGit2 },
+  { key: "docs", title: "Parsing Documents", icon: FileText },
+  { key: "website", title: "Checking Website", icon: Globe },
+  { key: "performance", title: "Running Performance Tests", icon: Gauge },
+  { key: "evidence", title: "Building Evidence", icon: ShieldCheck },
+  { key: "report", title: "Generating Final Report", icon: Sparkles },
+] as const;
+
+type StepStatus = "pending" | "active" | "done" | "error";
+
+function stepDetail(key: (typeof STEPS)[number]["key"], project: ProjectRow | null): string {
+  switch (key) {
+    case "connect":
+      return project?.repo_url
+        ? `Resolving ${project.repo_url.replace(/^https?:\/\//, "")} and authentication.`
+        : "Resolving repository access and permissions.";
+    case "files":
+      return "Indexing source tree, configuration and test folders.";
+    case "docs":
+      return `Reading ${project?.name ?? "the project"} materials for claims.`;
+    case "website":
+      return project?.website_url
+        ? `Loading ${project.website_url} and capturing screenshots.`
+        : "Loading the live site and capturing screenshots.";
+    case "performance":
+      return "Measuring Lighthouse vitals and bundle weight.";
+    case "evidence":
+      return "Matching each claim against collected proof.";
+    case "report":
+      return `Assembling the report for ${project?.name ?? "this project"}.`;
+  }
+}
 
 function ProgressPage() {
   const navigate = useNavigate();
   const { projectId, reportId } = Route.useSearch();
+  const { user, isGuest } = useAuth();
+
+  const [project, setProject] = useState<ProjectRow | null>(null);
+  const [report, setReport] = useState<ReportRow | null>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
   const [done, setDone] = useState(0);
-  const [failed, setFailed] = useState<null | number>(null);
+  const [failedAt, setFailedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [navigating, setNavigating] = useState(false);
 
+  // Load the real project/report rows for the ids handed over by the review flow.
+  useEffect(() => {
+    let cancelled = false;
+    setLoadState("loading");
+    setLoadError(null);
+
+    const loadLocal = () => {
+      const localProject = projectId ? getGuestProject(projectId) : null;
+      const localReport = reportId ? getGuestReport(reportId) : null;
+      if (cancelled) return;
+      setProject(localProject);
+      setReport(localReport);
+      setLoadState("ready");
+    };
+
+    // Guest (or unconfigured) sessions only ever have browser-local rows.
+    if (isGuest || !user || !isSupabaseConfigured) {
+      loadLocal();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      try {
+        const dbProject = projectId ? await getProject(projectId) : null;
+        const dbReport = reportId ? await getReport(reportId) : null;
+        if (cancelled) return;
+        setProject(dbProject);
+        setReport(dbReport);
+        setLoadState("ready");
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(
+          error instanceof Error ? error.message : "We couldn't load this investigation.",
+        );
+        setLoadState("error");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, reportId, user, isGuest, reloadKey]);
+
+  const reportStatus = normalizeReportStatus(report?.status);
+
+  // Mirror the stored status: a completed report renders as finished immediately,
+  // a failed one surfaces the interruption instead of pretending to progress.
+  useEffect(() => {
+    if (loadState !== "ready" || !report) return;
+    if (report.status === "Completed") {
+      setDone(STEPS.length);
+      setFailedAt(null);
+    } else if (report.status === "Failed") {
+      setFailedAt((current) => current ?? Math.max(1, Math.min(done, STEPS.length - 1)));
+    }
+  }, [loadState, report, done]);
+
+  const animationComplete = done >= STEPS.length;
+  const reportCompleted = report?.status === "Completed";
+  // A report that is still `In Progress` must never render as complete, even when
+  // the local step animation has nothing left to advance.
+  const waitingForAnalysis = report?.status === "In Progress" && animationComplete;
+  const finished = reportCompleted || (!report && animationComplete);
+  const displayDone = waitingForAnalysis ? STEPS.length - 1 : Math.min(done, STEPS.length);
+  const isFailed = failedAt !== null;
+
   // Elapsed timer while running
   useEffect(() => {
-    if (done >= investigationSteps.length || failed !== null) return;
+    if (finished || isFailed || loadState !== "ready") return;
     const t = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(t);
-  }, [done, failed]);
+  }, [finished, isFailed, loadState]);
 
-  // Advance through steps
+  // Advance through steps while the report is genuinely still processing.
   useEffect(() => {
-    if (done >= investigationSteps.length || failed !== null) return;
+    if (loadState !== "ready" || finished || isFailed || animationComplete) return;
     const t = setTimeout(() => setDone((d) => d + 1), 1100);
     return () => clearTimeout(t);
-  }, [done, failed]);
+  }, [done, finished, isFailed, loadState, animationComplete]);
 
   useEffect(() => {
-    if (done >= investigationSteps.length) {
-      toast.success("Report ready", { description: "Atlas — Climate Risk Dashboard" });
-    }
-  }, [done]);
+    if (!finished || !report || report.status !== "Completed") return;
+    notify.success("Report ready", report.name);
+  }, [finished, report]);
 
-  const pct =
-    failed !== null
-      ? Math.round((done / investigationSteps.length) * 100)
-      : Math.round((done / investigationSteps.length) * 100);
-  const finished = done >= investigationSteps.length;
+  const pct = Math.round((displayDone / STEPS.length) * 100);
   const timerLabel = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
 
   const retry = () => {
-    setFailed(null);
+    setFailedAt(null);
     setElapsed(0);
-    notify.info("Retrying investigation", "Resuming from where we left off.");
+    setDone(0);
+    setReloadKey((key) => key + 1);
+    notify.info("Retrying investigation", "Reloading the latest status.");
   };
 
   const viewReport = () => {
@@ -109,10 +231,75 @@ function ProgressPage() {
     );
   };
 
+  if (loadState === "error") {
+    return (
+      <AppLayout title="Investigation" subtitle="We couldn't load this review.">
+        <div className="mx-auto max-w-2xl">
+          <ErrorState
+            title="Couldn't load this investigation"
+            description={loadError ?? "The report service didn't respond."}
+            onRetry={retry}
+          />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (loadState === "loading") {
+    return (
+      <AppLayout title="Loading investigation…" subtitle="Fetching the submitted project.">
+        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading investigation…
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const hasIds = Boolean(projectId || reportId);
+  if (hasIds && !project && !report) {
+    return (
+      <AppLayout title="Investigation not found" subtitle="This review isn't available.">
+        <div className="mx-auto max-w-2xl">
+          <EmptyState
+            icon={<FolderGit2 />}
+            title="Investigation not found"
+            description={
+              isGuest || !user
+                ? "Guest submissions are stored in this browser only. If local storage was cleared or you opened this link on another device, the investigation can't be recovered — you can submit the project again."
+                : "This investigation may have been deleted, or it belongs to another account."
+            }
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild variant="outline">
+                  <Link to="/reports">Back to reports</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/review/project">
+                    <Sparkles className="h-4 w-4" /> New project review
+                  </Link>
+                </Button>
+              </div>
+            }
+          />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const statusLabel = isFailed
+    ? "Analysis failed"
+    : finished
+      ? "Analysis complete"
+      : waitingForAnalysis || report?.status === "In Progress"
+        ? "Analysis in progress"
+        : "Preparing investigation";
+
+  const title = project?.name ?? (finished ? "Analysis complete" : "Investigation");
+
   return (
     <AppLayout
-      title={finished ? "Analysis complete" : failed !== null ? "Analysis failed" : "Analyzing…"}
-      subtitle={`Review in progress · elapsed ${timerLabel}`}
+      title={title}
+      subtitle={`${statusLabel} · elapsed ${timerLabel}`}
       crumbs={[{ label: "Investigation Timeline" }]}
       actions={
         finished ? (
@@ -129,23 +316,86 @@ function ProgressPage() {
       }
     >
       <div className="mx-auto max-w-2xl space-y-6">
+        {/* Real submission details */}
+        <div className="surface space-y-3 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">
+                {project?.name ?? report?.name ?? "Investigation"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {report
+                  ? report.report_data
+                    ? "Report data captured"
+                    : "Report data pending"
+                  : "No report linked"}
+              </p>
+            </div>
+            <Badge variant="outline" className={`text-xs ${reportStatus.badgeClass}`}>
+              {report ? reportStatus.label : "Not started"}
+            </Badge>
+          </div>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div className="min-w-0">
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Repository</dt>
+              <dd className="truncate">
+                {project?.repo_url ? (
+                  <a
+                    href={project.repo_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex max-w-full items-center gap-1.5 text-primary hover:underline"
+                  >
+                    <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{project.repo_url}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground">Not provided</span>
+                )}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">Website</dt>
+              <dd className="truncate">
+                {project?.website_url ? (
+                  <a
+                    href={project.website_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex max-w-full items-center gap-1.5 text-primary hover:underline"
+                  >
+                    <Globe className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{project.website_url}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground">Not provided</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
         {/* Progress card */}
         <div className="surface p-6">
           <div className="mb-3 flex items-end justify-between text-sm">
             <div>
               <p className="font-medium">
-                {finished
-                  ? "Investigation complete"
-                  : failed !== null
-                    ? "Investigation interrupted"
+                {isFailed
+                  ? "Investigation interrupted"
+                  : finished
+                    ? "Investigation complete"
                     : "Investigation running"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {failed !== null
-                  ? "Some checks couldn't finish."
+                {isFailed
+                  ? "The analysis stopped before all checks finished."
                   : finished
-                    ? "All evidence gathered successfully."
-                    : "Gathering evidence from every source…"}
+                    ? "All evidence gathered — the report is ready."
+                    : waitingForAnalysis
+                      ? "Waiting for the analysis to finish — the report isn't final yet."
+                      : "Gathering evidence from every source…"}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -161,35 +411,38 @@ function ProgressPage() {
           <Progress value={pct} className="h-2" aria-label="Overall progress" />
         </div>
 
-        {failed !== null ? (
+        {isFailed && (
           <ErrorState
             title="Investigation failed"
-            description={`A step could not complete. Nothing was lost — you can retry from here or go back to edit the source.`}
+            description={
+              report?.status === "Failed"
+                ? `${report.name} could not be completed. Any partial findings are still available in the report.`
+                : "A step could not complete. Nothing was lost — you can retry or go back and edit the source."
+            }
             onRetry={retry}
           />
-        ) : null}
+        )}
 
         {/* Timeline */}
-        {!failed && (
+        {!isFailed && (
           <ol className="relative space-y-3">
-            {investigationSteps.map((s, i) => {
-              const state: InvestigationStepStatus =
-                i < done ? "done" : i === done ? "active" : "pending";
-              const Icon = stepIcons[i] ?? Circle;
+            {STEPS.map((step, i) => {
+              const state: StepStatus =
+                i < displayDone ? "done" : i === displayDone ? "active" : "pending";
+              const Icon = step.icon ?? Circle;
               return (
                 <motion.li
-                  key={s.key}
+                  key={step.key}
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
                   className="relative pl-10"
                   aria-current={state === "active" ? "step" : undefined}
                 >
-                  {/* connector */}
-                  {i < investigationSteps.length - 1 && (
+                  {i < STEPS.length - 1 && (
                     <span
                       aria-hidden
-                      className={`absolute left-[13px] top-9 h-[calc(100%-1.75rem)] w-px ${i < done ? "bg-success/60" : "bg-border"}`}
+                      className={`absolute left-[13px] top-9 h-[calc(100%-1.75rem)] w-px ${i < displayDone ? "bg-success/60" : "bg-border"}`}
                     />
                   )}
                   <div
@@ -222,7 +475,7 @@ function ProgressPage() {
                             : "text-sm font-medium"
                         }
                       >
-                        {s.title}
+                        {step.title}
                       </p>
                       <AnimatePresence initial={false}>
                         {(state === "done" || state === "active") && (
@@ -232,7 +485,7 @@ function ProgressPage() {
                             exit={{ opacity: 0, height: 0 }}
                             className="overflow-hidden text-xs text-muted-foreground"
                           >
-                            {s.detail}
+                            {stepDetail(step.key, project)}
                           </motion.p>
                         )}
                       </AnimatePresence>
@@ -249,9 +502,10 @@ function ProgressPage() {
           </ol>
         )}
 
-        {/* Inline error banner for demo / retry */}
+        {/* Demo failure preview: only for investigations with no stored report,
+            so a real report's status is never misrepresented. */}
         <AnimatePresence>
-          {done >= 3 && done < investigationSteps.length && !failed && (
+          {!reportId && done >= 3 && !finished && !isFailed && (
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -259,12 +513,12 @@ function ProgressPage() {
             >
               <button
                 type="button"
-                onClick={() => setFailed(done)}
+                onClick={() => setFailedAt(done)}
                 className="flex w-full items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-left text-sm text-warning transition-colors hover:bg-warning/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Demo a failing investigation"
+                aria-label="Preview a failing investigation"
               >
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span className="flex-1">Demo a failing investigation (optional preview)</span>
+                <span className="flex-1">Preview a failing investigation (demo only)</span>
                 <ChevronRight className="h-4 w-4" />
               </button>
             </motion.div>

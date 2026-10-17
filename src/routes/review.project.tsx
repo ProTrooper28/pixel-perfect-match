@@ -222,7 +222,7 @@ function ReviewProject() {
             <Input
               id="pname"
               value={name}
-              placeholder="e.g. Atlas — Climate Risk Dashboard"
+              placeholder="e.g. Aurora — Realtime Analytics"
               onChange={(e) => setName(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, name: true }))}
               aria-invalid={showNameError}

@@ -6,7 +6,7 @@ interface ReportSectionProps {
   value: string;
   title: string;
   icon: ReactNode;
-  count?: number;
+  count?: number | undefined;
   defaultOpen?: boolean;
   children: ReactNode;
   tone?: "default" | "success" | "warning" | "destructive";
