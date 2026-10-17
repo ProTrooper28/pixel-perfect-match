@@ -12,6 +12,9 @@ import { createProjectForUser } from "@/services/project.service";
 import { createReportForUser } from "@/services/report.service";
 import { createGuestProject, createGuestReport } from "@/services/guest.service";
 import { notify } from "@/lib/toast-messages";
+import { startProjectAnalysis } from "@/analysis/runner";
+import { analysisPersistenceFor } from "@/analysis/persistence";
+import type { AnalysisInput } from "@/analysis/types";
 import type { Json } from "@/types/database";
 
 export const Route = createFileRoute("/review/project")({
@@ -92,6 +95,41 @@ function ReviewProject() {
     attachments,
   };
 
+  /**
+   * Kick off the analysis pipeline for a freshly created report.
+   *
+   * The run is not awaited: `/progress` subscribes to its stages while the report
+   * row carries the durable status. Guest and authenticated runs use different
+   * persistence adapters, so guest data never reaches Supabase.
+   */
+  const startAnalysis = ({
+    isGuestSubmission,
+    ...submission
+  }: {
+    projectId: string;
+    reportId: string;
+    name: string;
+    repoUrl: string | null;
+    websiteUrl: string | null;
+    notes: string | null;
+    createdAt: string;
+    isGuestSubmission: boolean;
+  }) => {
+    const input: AnalysisInput = { ...submission, attachments };
+    const run = startProjectAnalysis(
+      input,
+      analysisPersistenceFor(submission.reportId, isGuestSubmission),
+    );
+    // The record already exists, so a failed final write only needs surfacing.
+    run?.catch((error: unknown) => {
+      console.error(error);
+      notify.error(
+        "Analysis result could not be saved",
+        "The project and report were kept — open the report to retry.",
+      );
+    });
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched({ name: true, repo: true, live: true });
@@ -119,6 +157,19 @@ function ReviewProject() {
           report_data: reportData,
         });
 
+        // The guest report stays in this browser; the pipeline updates it through
+        // the guest adapter and never touches Supabase.
+        startAnalysis({
+          projectId: project.id,
+          reportId: report.id,
+          name: project.name,
+          repoUrl: project.repo_url,
+          websiteUrl: project.website_url,
+          notes: project.description,
+          createdAt: report.created_at,
+          isGuestSubmission: true,
+        });
+
         notify.success("Project submitted", `${project.name} is queued for investigation.`);
         navigate({ to: "/progress", search: { projectId: project.id, reportId: report.id } });
         return;
@@ -140,6 +191,17 @@ function ReviewProject() {
         project_id: project.id,
         status: "In Progress",
         report_data: reportData,
+      });
+
+      startAnalysis({
+        projectId: project.id,
+        reportId: report.id,
+        name: project.name,
+        repoUrl: project.repo_url,
+        websiteUrl: project.website_url,
+        notes: project.description,
+        createdAt: report.created_at,
+        isGuestSubmission: false,
       });
 
       notify.success("Project submitted", `${project.name} is queued for investigation.`);

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isReportId } from "@/services/report.service";
+import { analysisPersistenceFor } from "@/analysis/persistence";
+import type { AnalysisInput } from "@/analysis/types";
+import { runProjectAnalysis } from "@/analysis/analysis.service";
 import {
   createGuestProject,
   createGuestReport,
@@ -81,6 +84,70 @@ describe("guest submission store", () => {
     expect(getGuestReport(drop.id)).toBeNull();
     expect(getGuestReport(keep.id)).not.toBeNull();
     expect(listGuestReports()).toHaveLength(1);
+  });
+
+  it("runs analysis against the guest store without writing a Supabase row", async () => {
+    const project = createGuestProject({
+      name: "Guest Pipeline",
+      repo_url: "https://github.com/acme/app",
+      website_url: null,
+      description: null,
+    });
+    const report = createGuestReport({
+      type: "Project",
+      name: project.name,
+      project_id: project.id,
+      status: "In Progress",
+      report_data: { repo_url: project.repo_url },
+    });
+
+    const input: AnalysisInput = {
+      projectId: project.id,
+      reportId: report.id,
+      name: project.name,
+      repoUrl: project.repo_url,
+      websiteUrl: null,
+      notes: null,
+      attachments: [],
+      createdAt: report.created_at,
+    };
+
+    // No network: the repository is unreachable, which is exactly the failure
+    // path we want to verify is persisted for guests as well.
+    const fetchImpl = (async () => ({
+      status: 404,
+      ok: false,
+      headers: { get: () => null },
+      text: async () => "",
+    })) as unknown as typeof fetch;
+
+    const result = await runProjectAnalysis({
+      input,
+      persistence: analysisPersistenceFor(report.id, true),
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("Failed");
+    const stored = getGuestReport(report.id);
+    expect(stored?.status).toBe("Failed");
+    expect(stored?.report_data).toBeTruthy();
+    expect(stored).not.toHaveProperty("user_id");
+  });
+
+  it("updates an existing guest report with a completed analysis", async () => {
+    const report = createGuestReport({ type: "Project", name: "Guest Completed" });
+
+    await analysisPersistenceFor(report.id, true).update({
+      status: "Completed",
+      score: 81,
+      report_data: { analysis: { state: "completed" } },
+    });
+
+    const stored = getGuestReport(report.id);
+    expect(stored?.status).toBe("Completed");
+    expect(stored?.score).toBe(81);
+    expect(stored?.report_data).toEqual({ analysis: { state: "completed" } });
+    expect(window.localStorage.getItem(STORAGE_KEY) ?? "").not.toContain("user_id");
   });
 
   it("returns an empty list when the payload is corrupt", () => {

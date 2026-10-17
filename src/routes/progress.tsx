@@ -13,11 +13,14 @@ import {
   Gauge,
   GitBranch,
   Globe,
+  Layers,
   Loader2,
+  RotateCcw,
   ScanSearch,
   ShieldCheck,
   Sparkles,
   Timer,
+  type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,9 +38,12 @@ import {
   type GuestProject,
   type GuestReport,
 } from "@/services/guest.service";
-import { normalizeReportStatus } from "@/lib/report-data";
+import { normalizeReportData, normalizeReportStatus } from "@/lib/report-data";
+import { isAnalysisRunning, startProjectAnalysis, subscribeAnalysis } from "@/analysis/runner";
+import { analysisPersistenceFor } from "@/analysis/persistence";
+import type { AnalysisStage } from "@/analysis/types";
 import { notify } from "@/lib/toast-messages";
-import type { Project, Report } from "@/types/database";
+import type { Json, Project, Report } from "@/types/database";
 
 export const Route = createFileRoute("/progress")({
   // The review flows hand the ids over as search params: `/progress` has no path
@@ -80,7 +86,57 @@ const STEPS = [
   { key: "report", title: "Generating Final Report", icon: Sparkles },
 ] as const;
 
-type StepStatus = "pending" | "active" | "done" | "error";
+type StepStatus = "pending" | "active" | "done" | "skipped" | "error";
+
+/** Icons for the pipeline's real stages (keys come from `ANALYSIS_STAGES`). */
+const STAGE_ICONS: Record<string, LucideIcon> = {
+  validated: GitBranch,
+  inspected: FolderGit2,
+  stack: Layers,
+  quality: Gauge,
+  security: ShieldCheck,
+  documentation: FileText,
+  report: Sparkles,
+};
+
+function normalizeStageState(state: string): StepStatus {
+  switch (state) {
+    case "done":
+    case "active":
+    case "skipped":
+    case "failed":
+      return state === "failed" ? "error" : state;
+    default:
+      return "pending";
+  }
+}
+
+/** Submission details the pipeline stored, used to resume an interrupted run. */
+function readSubmission(value: Json | null): {
+  notes: string | null;
+  attachments: { name: string; size: number; type: string }[];
+} {
+  const root = value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  const submission = root?.["submission"];
+  if (!submission || typeof submission !== "object" || Array.isArray(submission)) {
+    return { notes: null, attachments: [] };
+  }
+  const notes = submission["notes"];
+  const rawAttachments = submission["attachments"];
+  const attachments = Array.isArray(rawAttachments)
+    ? rawAttachments.flatMap((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+        const name = item["name"];
+        const size = item["size"];
+        const type = item["type"];
+        if (typeof name !== "string" || typeof size !== "number" || typeof type !== "string") {
+          return [];
+        }
+        return [{ name, size, type }];
+      })
+    : [];
+  return { notes: typeof notes === "string" ? notes : null, attachments };
+}
 
 function stepDetail(key: (typeof STEPS)[number]["key"], project: ProjectRow | null): string {
   switch (key) {
@@ -120,6 +176,13 @@ function ProgressPage() {
   const [failedAt, setFailedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [navigating, setNavigating] = useState(false);
+  // Live stages emitted by the analysis running in this tab (if any).
+  const [liveStages, setLiveStages] = useState<AnalysisStage[] | null>(null);
+
+  useEffect(() => {
+    if (!reportId) return;
+    return subscribeAnalysis(reportId, setLiveStages);
+  }, [reportId]);
 
   // Load the real project/report rows for the ids handed over by the review flow.
   useEffect(() => {
@@ -166,7 +229,41 @@ function ProgressPage() {
     };
   }, [projectId, reportId, user, isGuest, reloadKey]);
 
+  // Follow the stored status while the report is still being analyzed. Guest
+  // rows are re-read from this browser; authenticated rows from Supabase.
+  useEffect(() => {
+    if (loadState !== "ready" || !reportId || report?.status !== "In Progress") return;
+    let cancelled = false;
+    const localOnly = isGuest || !user || !isSupabaseConfigured;
+    const tick = async () => {
+      try {
+        if (localOnly) {
+          const local = getGuestReport(reportId);
+          if (!cancelled && local) setReport(local);
+          return;
+        }
+        const fresh = await getReport(reportId);
+        if (!cancelled && fresh) setReport(fresh);
+      } catch {
+        // A transient read failure must not interrupt the run; the next tick retries.
+      }
+    };
+    const timer = setInterval(tick, localOnly ? 800 : 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [loadState, reportId, report?.status, isGuest, user]);
+
   const reportStatus = normalizeReportStatus(report?.status);
+  const analysis = report ? normalizeReportData(report.report_data).analysis : null;
+
+  // Prefer live stages from this tab, then the last stages persisted on the row.
+  const storedStages =
+    liveStages && liveStages.length > 0
+      ? liveStages.map((stage) => ({ ...stage, state: stage.state as string }))
+      : (analysis?.stages ?? []);
+  const hasPipelineStages = storedStages.length > 0;
 
   // Mirror the stored status: a completed report renders as finished immediately,
   // a failed one surfaces the interruption instead of pretending to progress.
@@ -182,12 +279,58 @@ function ProgressPage() {
 
   const animationComplete = done >= STEPS.length;
   const reportCompleted = report?.status === "Completed";
+  const pipelineDone = storedStages.filter(
+    (stage) => stage.state === "done" || stage.state === "skipped",
+  ).length;
+  const pipelineFailed =
+    hasPipelineStages && storedStages.some((stage) => stage.state === "failed");
+  const totalSteps = hasPipelineStages ? storedStages.length : STEPS.length;
   // A report that is still `In Progress` must never render as complete, even when
   // the local step animation has nothing left to advance.
-  const waitingForAnalysis = report?.status === "In Progress" && animationComplete;
-  const finished = reportCompleted || (!report && animationComplete);
-  const displayDone = waitingForAnalysis ? STEPS.length - 1 : Math.min(done, STEPS.length);
-  const isFailed = failedAt !== null;
+  // A report that is still being analyzed but has not persisted any stage yet
+  // must show a waiting state, never simulated progress.
+  const waitingForAnalysis = !hasPipelineStages && report?.status === "In Progress";
+  // With real stages the stored status alone decides completion/failure — no
+  // timed animation can claim an analysis finished.
+  const finished = hasPipelineStages
+    ? reportCompleted
+    : reportCompleted || (!report && animationComplete);
+  const displayDone = hasPipelineStages
+    ? pipelineDone
+    : waitingForAnalysis
+      ? 0
+      : Math.min(done, STEPS.length);
+  const isFailed = hasPipelineStages
+    ? report?.status === "Failed" || pipelineFailed
+    : failedAt !== null;
+
+  const viewSteps: {
+    key: string;
+    title: string;
+    icon: LucideIcon;
+    state: StepStatus;
+    detail: string | null;
+  }[] = hasPipelineStages
+    ? storedStages.map((stage) => ({
+        key: stage.key,
+        title: stage.label,
+        icon: STAGE_ICONS[stage.key] ?? Circle,
+        state: normalizeStageState(stage.state),
+        detail: stage.detail,
+      }))
+    : STEPS.map((step, i) => ({
+        key: step.key,
+        title: step.title,
+        icon: step.icon,
+        state: waitingForAnalysis
+          ? "pending"
+          : i < displayDone
+            ? "done"
+            : i === displayDone
+              ? "active"
+              : "pending",
+        detail: stepDetail(step.key, project),
+      }));
 
   // Elapsed timer while running
   useEffect(() => {
@@ -198,17 +341,20 @@ function ProgressPage() {
 
   // Advance through steps while the report is genuinely still processing.
   useEffect(() => {
+    // The fallback animation is only for the preview with no stored report; a
+    // real report reports its own progress and is never animated ahead.
+    if (hasPipelineStages || report) return;
     if (loadState !== "ready" || finished || isFailed || animationComplete) return;
     const t = setTimeout(() => setDone((d) => d + 1), 1100);
     return () => clearTimeout(t);
-  }, [done, finished, isFailed, loadState, animationComplete]);
+  }, [done, finished, isFailed, loadState, animationComplete, hasPipelineStages, report]);
 
   useEffect(() => {
     if (!finished || !report || report.status !== "Completed") return;
     notify.success("Report ready", report.name);
   }, [finished, report]);
 
-  const pct = Math.round((displayDone / STEPS.length) * 100);
+  const pct = Math.round((displayDone / totalSteps) * 100);
   const timerLabel = `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
 
   const retry = () => {
@@ -217,6 +363,60 @@ function ProgressPage() {
     setDone(0);
     setReloadKey((key) => key + 1);
     notify.info("Retrying investigation", "Reloading the latest status.");
+  };
+
+  const canRestart =
+    Boolean(reportId) &&
+    Boolean(project?.repo_url) &&
+    report?.status === "In Progress" &&
+    !finished &&
+    !isFailed &&
+    !isAnalysisRunning(reportId ?? "");
+
+  /** Resume a run that was interrupted by a reload (in-memory state is gone). */
+  const restart = () => {
+    if (!report || !reportId || !project?.repo_url) return;
+    const submission = readSubmission(report.report_data);
+    const started = startProjectAnalysis(
+      {
+        projectId: projectId ?? null,
+        reportId,
+        name: project.name,
+        repoUrl: project.repo_url,
+        websiteUrl: project.website_url,
+        notes: submission.notes ?? project.description,
+        attachments: submission.attachments,
+        createdAt: report.created_at,
+      },
+      analysisPersistenceFor(reportId, isGuest || !user),
+    );
+    if (!started) {
+      notify.error("Analysis unavailable", "The analysis pipeline cannot run in this environment.");
+      return;
+    }
+    started.catch((error: unknown) => {
+      console.error(error);
+      notify.error(
+        "Analysis result could not be saved",
+        "The report was kept — retry the analysis.",
+      );
+    });
+    setFailedAt(null);
+    setElapsed(0);
+    setDone(0);
+    notify.info("Analysis restarted", "Re-running the repository checks in this tab.");
+  };
+
+  /**
+   * Retry after a failed run: re-runs the analysis when the repository is known,
+   * otherwise just reloads the stored status.
+   */
+  const retryAnalysis = () => {
+    if (reportId && project?.repo_url && !isAnalysisRunning(reportId)) {
+      restart();
+      return;
+    }
+    retry();
   };
 
   const viewReport = () => {
@@ -411,24 +611,37 @@ function ProgressPage() {
           <Progress value={pct} className="h-2" aria-label="Overall progress" />
         </div>
 
+        {canRestart && (
+          <div className="surface flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              This analysis isn't running in this tab (for example after a reload). The report stays
+              in progress until it is resumed.
+            </p>
+            <Button variant="outline" size="sm" onClick={restart}>
+              <RotateCcw className="h-4 w-4" /> Resume analysis
+            </Button>
+          </div>
+        )}
+
         {isFailed && (
           <ErrorState
             title="Investigation failed"
             description={
-              report?.status === "Failed"
-                ? `${report.name} could not be completed. Any partial findings are still available in the report.`
-                : "A step could not complete. Nothing was lost — you can retry or go back and edit the source."
+              analysis?.error
+                ? `${analysis.error.message}${analysis.error.hint ? ` ${analysis.error.hint}` : ""}`
+                : report?.status === "Failed"
+                  ? `${report.name} could not be completed. Any partial findings are still available in the report.`
+                  : "A step could not complete. Nothing was lost — you can retry or go back and edit the source."
             }
-            onRetry={retry}
+            onRetry={retryAnalysis}
           />
         )}
 
         {/* Timeline */}
         {!isFailed && (
           <ol className="relative space-y-3">
-            {STEPS.map((step, i) => {
-              const state: StepStatus =
-                i < displayDone ? "done" : i === displayDone ? "active" : "pending";
+            {viewSteps.map((step, i) => {
+              const state: StepStatus = step.state;
               const Icon = step.icon ?? Circle;
               return (
                 <motion.li
@@ -439,7 +652,7 @@ function ProgressPage() {
                   className="relative pl-10"
                   aria-current={state === "active" ? "step" : undefined}
                 >
-                  {i < STEPS.length - 1 && (
+                  {i < viewSteps.length - 1 && (
                     <span
                       aria-hidden
                       className={`absolute left-[13px] top-9 h-[calc(100%-1.75rem)] w-px ${i < displayDone ? "bg-success/60" : "bg-border"}`}
@@ -485,7 +698,7 @@ function ProgressPage() {
                             exit={{ opacity: 0, height: 0 }}
                             className="overflow-hidden text-xs text-muted-foreground"
                           >
-                            {stepDetail(step.key, project)}
+                            {step.detail}
                           </motion.p>
                         )}
                       </AnimatePresence>
@@ -493,7 +706,13 @@ function ProgressPage() {
                     <span
                       className={`shrink-0 text-xs ${state === "done" ? "text-success" : state === "active" ? "text-primary" : "text-muted-foreground/60"}`}
                     >
-                      {state === "done" ? "Done" : state === "active" ? "Running" : "Queued"}
+                      {state === "done"
+                        ? "Done"
+                        : state === "active"
+                          ? "Running"
+                          : state === "skipped"
+                            ? "Skipped"
+                            : "Queued"}
                     </span>
                   </div>
                 </motion.li>

@@ -165,6 +165,38 @@ export function createGuestReport(input: GuestReportInput): GuestReport {
   return report;
 }
 
+/**
+ * Update a guest report in local storage.
+ *
+ * Used by the analysis pipeline so guest reports get the same lifecycle as
+ * authenticated ones (In Progress → Completed/Failed) without ever touching
+ * Supabase or inventing a `user_id`.
+ */
+export function updateGuestReport(
+  id: string,
+  patch: Partial<Omit<GuestReport, "id" | "created_at">>,
+): GuestReport | null {
+  const store = readStore();
+  const index = store.reports.findIndex((report) => report.id === id);
+  if (index === -1) return null;
+  const current = store.reports[index];
+  if (!current) return null;
+  const updated: GuestReport = {
+    id: current.id,
+    created_at: current.created_at,
+    project_id: patch.project_id === undefined ? current.project_id : patch.project_id,
+    type: patch.type ?? current.type,
+    name: patch.name ?? current.name,
+    status: patch.status ?? current.status,
+    score: patch.score === undefined ? current.score : patch.score,
+    report_data: patch.report_data === undefined ? current.report_data : patch.report_data,
+    updated_at: new Date().toISOString(),
+  };
+  store.reports[index] = updated;
+  writeStore(store);
+  return updated;
+}
+
 /** Remove a guest report from local storage. */
 export function deleteGuestReport(id: string): void {
   const store = readStore();

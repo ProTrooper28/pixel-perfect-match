@@ -187,6 +187,8 @@ function scoreDimensions(view: ReportView): { label: string; score: number | nul
     { label: "Security", score: view.scores.security },
     { label: "Performance", score: view.scores.performance },
     { label: "Maintainability", score: view.scores.maintainability },
+    { label: "Testing", score: view.scores.testing },
+    { label: "Documentation", score: view.scores.documentation },
     { label: "Innovation", score: view.scores.innovation },
   ];
 }
@@ -371,6 +373,12 @@ function Report() {
               </Badge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{status.description}</p>
+            {view.analysis?.error && (
+              <p className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <strong>{view.analysis.error.message}</strong>
+                {view.analysis.error.hint ? ` ${view.analysis.error.hint}` : ""}
+              </p>
+            )}
           </div>
           {status.kind === "in_progress" ? (
             <Button asChild variant="outline" size="sm">
@@ -774,6 +782,69 @@ function Report() {
           </ReportSection>
 
           <ReportSection
+            value="documentation"
+            title="Documentation"
+            icon={<FileWarning className="h-4 w-4" />}
+          >
+            <div className="flex items-baseline gap-2">
+              <span
+                className={`text-3xl font-semibold tabular-nums ${
+                  view.scores.documentation === null
+                    ? "text-muted-foreground"
+                    : scoreTone(view.scores.documentation)
+                }`}
+              >
+                {view.scores.documentation ?? "—"}
+              </span>
+              <span className="text-sm text-muted-foreground">/ 100</span>
+            </div>
+            {view.documentation.summary ? (
+              <p className="mt-3 text-sm text-muted-foreground">{view.documentation.summary}</p>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                No documentation evidence was recorded — not enough evidence.
+              </p>
+            )}
+            {view.documentation.notes.length > 0 && (
+              <div className="mt-4">
+                <BulletList items={view.documentation.notes} />
+              </div>
+            )}
+          </ReportSection>
+
+          <ReportSection
+            value="testing"
+            title="Testing"
+            icon={<ListChecks className="h-4 w-4" />}
+            tone="warning"
+          >
+            <div className="flex items-baseline gap-2">
+              <span
+                className={`text-3xl font-semibold tabular-nums ${
+                  view.scores.testing === null
+                    ? "text-muted-foreground"
+                    : scoreTone(view.scores.testing)
+                }`}
+              >
+                {view.scores.testing ?? "—"}
+              </span>
+              <span className="text-sm text-muted-foreground">/ 100</span>
+            </div>
+            {view.testing.summary ? (
+              <p className="mt-3 text-sm text-muted-foreground">{view.testing.summary}</p>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                No testing evidence was recorded — not enough evidence.
+              </p>
+            )}
+            {view.testing.notes.length > 0 && (
+              <div className="mt-4">
+                <BulletList items={view.testing.notes} />
+              </div>
+            )}
+          </ReportSection>
+
+          <ReportSection
             value="risks"
             title="Risks / Findings"
             icon={<FileWarning className="h-4 w-4" />}
@@ -854,16 +925,48 @@ function Report() {
             icon={<TrendingUp className="h-4 w-4" />}
             tone="success"
           >
+            {" "}
             {scoredDimensions.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {dimensions.map((dimension) => (
-                  <ScoreStat
-                    key={dimension.label}
-                    label={dimension.label}
-                    score={dimension.score}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {dimensions.map((dimension) => (
+                    <ScoreStat
+                      key={dimension.label}
+                      label={dimension.label}
+                      score={dimension.score}
+                    />
+                  ))}
+                </div>
+                {view.scoreBreakdown && view.scoreBreakdown.dimensions.length > 0 && (
+                  <div className="mt-5">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      How the overall score is calculated
+                    </p>
+                    <ul className="space-y-2">
+                      {view.scoreBreakdown.dimensions.map((dimension) => (
+                        <li
+                          key={dimension.key}
+                          className="flex flex-wrap items-baseline gap-2 text-sm text-muted-foreground"
+                        >
+                          <span className="font-medium text-foreground">{dimension.label}</span>
+                          <span className="font-mono text-xs">
+                            {dimension.score === null ? "—" : dimension.score}
+                          </span>
+                          <span className="text-xs">
+                            weight {Math.round(dimension.weight * 100)}%
+                          </span>
+                          {dimension.contribution !== null && (
+                            <span className="text-xs">
+                              contributes {dimension.contribution} pts
+                            </span>
+                          )}
+                          <span className="w-full text-xs">{dimension.rationale}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             ) : (
               <EmptyNote>No scores have been stored for this report yet.</EmptyNote>
             )}

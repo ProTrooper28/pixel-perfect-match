@@ -175,7 +175,34 @@ export interface ReportScoreSet {
   security: number | null;
   performance: number | null;
   maintainability: number | null;
+  testing: number | null;
+  documentation: number | null;
   innovation: number | null;
+}
+
+export interface ScoreBreakdownEntry {
+  key: string;
+  label: string;
+  weight: number;
+  score: number | null;
+  contribution: number | null;
+  rationale: string;
+}
+
+export interface ReportAnalysisStage {
+  key: string;
+  label: string;
+  state: string;
+  detail: string | null;
+}
+
+export interface ReportAnalysisMeta {
+  state: string | null;
+  stages: ReportAnalysisStage[];
+  error: { code: string; message: string; hint: string | null } | null;
+  limitations: string[];
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 export type ReportSectionKey =
@@ -186,6 +213,8 @@ export type ReportSectionKey =
   | "security"
   | "performance"
   | "maintainability"
+  | "documentation"
+  | "testing"
   | "risks"
   | "recommendations"
   | "overallScore";
@@ -225,6 +254,14 @@ export interface ReportView {
     summary: string | null;
     notes: string[];
   };
+  documentation: {
+    summary: string | null;
+    notes: string[];
+  };
+  testing: {
+    summary: string | null;
+    notes: string[];
+  };
   risks: RiskFinding[];
   recommendations: Recommendation[];
   metrics: MetricEntry[];
@@ -236,6 +273,8 @@ export interface ReportView {
   timeline: { time: string; event: string }[];
   interviewQuestions: string[];
   judgeQuestions: string[];
+  scoreBreakdown: { overall: number | null; dimensions: ScoreBreakdownEntry[] } | null;
+  analysis: ReportAnalysisMeta | null;
   /** Which required sections actually carried data in the payload. */
   present: Record<ReportSectionKey, boolean>;
   /** True when the payload had at least one recognised field. */
@@ -469,6 +508,61 @@ function normalizeInnovation(value: unknown): InnovationDetail | null {
   };
 }
 
+function normalizeScoreBreakdown(
+  value: unknown,
+): { overall: number | null; dimensions: ScoreBreakdownEntry[] } | null {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) return null;
+  const dimensions = asRecordArray(record["dimensions"])
+    .map((entry): ScoreBreakdownEntry | null => {
+      const key = asString(entry["key"]);
+      if (!key) return null;
+      return {
+        key,
+        label: firstString(entry["label"]) ?? key,
+        weight: asNumber(entry["weight"]) ?? 0,
+        score: clampScore(asNumber(entry["score"])),
+        contribution: asNumber(entry["contribution"]),
+        rationale: firstString(entry["rationale"]) ?? "No rationale recorded.",
+      };
+    })
+    .filter((entry): entry is ScoreBreakdownEntry => entry !== null);
+  return { overall: clampScore(asNumber(record["overall"])), dimensions };
+}
+
+function normalizeAnalysis(value: unknown): ReportAnalysisMeta | null {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) return null;
+  const stages = asRecordArray(record["stages"])
+    .map((entry): ReportAnalysisStage | null => {
+      const key = asString(entry["key"]);
+      if (!key) return null;
+      return {
+        key,
+        label: firstString(entry["label"]) ?? key,
+        state: asString(entry["state"]) ?? "pending",
+        detail: firstString(entry["detail"]),
+      };
+    })
+    .filter((entry): entry is ReportAnalysisStage => entry !== null);
+  const errorRecord = asRecord(record["error"]);
+  const error = Object.keys(errorRecord).length
+    ? {
+        code: asString(errorRecord["code"]) ?? "unexpected",
+        message: asString(errorRecord["message"]) ?? "The analysis failed.",
+        hint: asString(errorRecord["hint"]),
+      }
+    : null;
+  return {
+    state: asString(record["state"]),
+    stages,
+    error,
+    limitations: asStringArray(record["limitations"]),
+    startedAt: firstString(record["started_at"]),
+    completedAt: firstString(record["completed_at"]),
+  };
+}
+
 /**
  * Normalise a `report_data` payload into a renderable view model.
  *
@@ -484,6 +578,8 @@ export function normalizeReportData(raw: unknown): ReportView {
   const securityRaw = asRecord(data["security"]);
   const performanceRaw = asRecord(data["performance"]);
   const maintainabilityRaw = asRecord(data["maintainability"]);
+  const documentationRaw = asRecord(data["documentation"]);
+  const testingRaw = asRecord(data["testing"]);
   const scoresRaw = asRecord(data["scores"]);
 
   const repository = normalizeRepository(
@@ -538,6 +634,8 @@ export function normalizeReportData(raw: unknown): ReportView {
     maintainability: clampScore(
       firstNumber(scoresRaw["maintainability"], maintainabilityRaw["score"]),
     ),
+    testing: clampScore(firstNumber(scoresRaw["testing"], testingRaw["score"])),
+    documentation: clampScore(firstNumber(scoresRaw["documentation"], documentationRaw["score"])),
     innovation: clampScore(
       firstNumber(scoresRaw["innovation"], innovation?.score, data["innovationScore"]),
     ),
@@ -645,6 +743,14 @@ export function normalizeReportData(raw: unknown): ReportView {
           data["maintainabilityNotes"],
       ),
     },
+    documentation: {
+      summary: firstString(documentationRaw["summary"], documentationRaw["overview"]),
+      notes: asStringArray(documentationRaw["notes"] ?? documentationRaw["evidence"]),
+    },
+    testing: {
+      summary: firstString(testingRaw["summary"], testingRaw["overview"]),
+      notes: asStringArray(testingRaw["notes"] ?? testingRaw["evidence"]),
+    },
     risks,
     recommendations,
     metrics,
@@ -656,6 +762,8 @@ export function normalizeReportData(raw: unknown): ReportView {
     timeline: normalizeTimeline(data["timeline"]),
     interviewQuestions: asStringArray(data["interviewQuestions"] ?? data["interview_questions"]),
     judgeQuestions: asStringArray(data["judgeQuestions"] ?? data["judge_questions"]),
+    scoreBreakdown: normalizeScoreBreakdown(data["score_breakdown"] ?? data["scoreBreakdown"]),
+    analysis: normalizeAnalysis(data["analysis"]),
     present: {
       executiveSummary: executiveSummary !== null,
       overview: Object.keys(overviewRaw).length > 0 || executiveSummary !== null,
@@ -675,6 +783,8 @@ export function normalizeReportData(raw: unknown): ReportView {
         performanceVitals.length > 0 ||
         lighthouse.some((entry) => entry.score !== null),
       maintainability: maintainabilitySummary !== null,
+      documentation: firstString(documentationRaw["summary"]) !== null,
+      testing: firstString(testingRaw["summary"]) !== null,
       risks: risks.length > 0 || securityFindings.length > 0,
       recommendations: recommendations.length > 0,
       overallScore: scores.overall !== null,
