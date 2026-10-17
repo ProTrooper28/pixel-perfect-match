@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -60,6 +61,13 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import type { Report as ReportRow } from "@/types/database";
 import { notify } from "@/lib/toast-messages";
+import {
+  buildReportExportHtml,
+  buildReportShareUrl,
+  copyTextToClipboard,
+  downloadReportFile,
+  reportExportFilename,
+} from "@/lib/report-share";
 
 interface ReportLoaderData {
   row: ReportRow | null;
@@ -105,6 +113,32 @@ function formatDate(value: string | undefined): string {
 }
 
 const listIcon = "mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary";
+
+/** Sections the page opens by default. */
+const DEFAULT_OPEN_SECTIONS = ["summary", "overview", "risks", "recommendations"];
+
+/** Every report section, expanded for printing so nothing is cut off. */
+const ALL_SECTIONS = [
+  "summary",
+  "overview",
+  "architecture",
+  "code",
+  "security",
+  "performance",
+  "maintainability",
+  "documentation",
+  "testing",
+  "risks",
+  "recommendations",
+  "scores",
+  "repo",
+  "website",
+  "claims",
+  "innovation",
+  "interview",
+  "judge",
+  "timeline",
+];
 
 function BulletList({ items, icon }: { items: string[]; icon?: "check" | "cross" }) {
   return (
@@ -228,16 +262,93 @@ function Report() {
 
   const reportRow = loaderRow ?? guestRow;
 
-  const copyLink = () => {
-    notify.copied("report link");
+  const [copying, setCopying] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [openSections, setOpenSections] = useState<string[]>(DEFAULT_OPEN_SECTIONS);
+
+  // Printing reveals every section (the DOM only holds open sections), then the
+  // user's previous selection is restored. flushSync keeps the expansion inside
+  // the synchronous `beforeprint` event.
+  useEffect(() => {
+    const expand = () => {
+      flushSync(() => setOpenSections(ALL_SECTIONS));
+    };
+    const restore = () => setOpenSections(DEFAULT_OPEN_SECTIONS);
+    window.addEventListener("beforeprint", expand);
+    window.addEventListener("afterprint", restore);
+    return () => {
+      window.removeEventListener("beforeprint", expand);
+      window.removeEventListener("afterprint", restore);
+    };
+  }, []);
+
+  const shareReport = async () => {
+    if (copying) return;
+    const url = buildReportShareUrl(reportRow?.id);
+    if (!url) {
+      notify.error("Report link unavailable", "This report has no id to share.");
+      return;
+    }
+    setCopying(true);
+    try {
+      const outcome = await copyTextToClipboard(url);
+      if (outcome === "copied") {
+        notify.success("Report link copied", "Anyone with the link can open this report.");
+      } else {
+        notify.error(
+          "Couldn't copy the link",
+          outcome === "denied"
+            ? "Your browser blocked clipboard access. Copy the address bar URL instead."
+            : "Clipboard access isn't available in this browser. Copy the address bar URL instead.",
+        );
+      }
+    } finally {
+      setCopying(false);
+    }
   };
 
-  const exportReport = () => {
-    notify.promise(new Promise((res) => setTimeout(res, 1200)), {
-      loading: "Preparing PDF export…",
-      success: "Export ready — check downloads",
-      error: "Export failed",
-    });
+  /**
+   * Export the report as a standalone, printable HTML document.
+   *
+   * Uses only the already-normalised report data, so a malformed or empty
+   * payload produces a document that says the section is empty — never invented
+   * findings — and a failure here cannot crash the page.
+   */
+  const downloadReport = async () => {
+    if (exporting || !reportRow) return;
+    setExporting(true);
+    try {
+      // Yield once so the button can paint its busy state before the synchronous work.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const html = buildReportExportHtml({
+        reportId: reportRow.id,
+        name: reportRow.name,
+        statusLabel: status.label,
+        statusDescription: status.description,
+        overall,
+        view,
+        shareUrl: buildReportShareUrl(reportRow.id),
+        createdAt: formatDate(reportRow.created_at),
+        exportedAt: formatDate(new Date().toISOString()),
+      });
+      const saved = downloadReportFile(reportExportFilename(reportRow.name, reportRow.id), html);
+      if (saved) {
+        notify.success(
+          "Report downloaded",
+          "Saved as a standalone HTML file you can print to PDF.",
+        );
+      } else {
+        notify.error(
+          "Couldn't download the report",
+          "Your browser blocked the download. The report is still on screen.",
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      notify.error("Couldn't export this report", "The report is still available on screen.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (loaderError) {
@@ -326,12 +437,30 @@ function Report() {
       subtitle={`${reportRow.project_id ? "Project report" : "Developer report"} · Generated ${formatDate(reportRow.created_at)}`}
       crumbs={[{ label: "Reports", to: "/reports" }, { label: reportRow.name }]}
       actions={
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={copyLink}>
-            <Copy className="h-4 w-4" /> Copy link
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void shareReport()}
+            disabled={copying}
+            aria-label="Share report"
+          >
+            {copying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+            {copying ? "Copying…" : "Share Report"}
           </Button>
-          <Button variant="outline" size="sm" onClick={exportReport}>
-            <Download className="h-4 w-4" /> Export
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void downloadReport()}
+            disabled={exporting}
+            aria-label="Download report"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {exporting ? "Preparing…" : "Download Report"}
           </Button>
           <Button variant="outline" size="sm" onClick={() => void router.invalidate()}>
             <RefreshCw className="h-4 w-4" /> Refresh
@@ -381,7 +510,7 @@ function Report() {
             )}
           </div>
           {status.kind === "in_progress" ? (
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="print:hidden">
               <Link
                 to="/progress"
                 search={{ projectId: reportRow.project_id ?? undefined, reportId: reportRow.id }}
@@ -390,7 +519,7 @@ function Report() {
               </Link>
             </Button>
           ) : status.kind === "failed" ? (
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="print:hidden">
               <Link to="/review/project">Start a new review</Link>
             </Button>
           ) : null}
@@ -464,7 +593,8 @@ function Report() {
         {/* Collapsible sections */}
         <Accordion
           type="multiple"
-          defaultValue={["summary", "overview", "risks", "recommendations"]}
+          value={openSections}
+          onValueChange={setOpenSections}
           className="surface px-6"
         >
           <ReportSection

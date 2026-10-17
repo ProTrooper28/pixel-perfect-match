@@ -117,3 +117,60 @@
   border-radius: calc(var(--radius) + 4px);
   box-shadow: var(--card-shadow);
 }
+
+/* ---------------------------------------------------------------- print */
+
+@media print {
+  @page { margin: 14mm; }
+
+  /* Reports must print on white paper even when dark mode is active. */
+  :root,
+  .dark {
+    color-scheme: light;
+    --background: #ffffff;
+    --foreground: #111827;
+    --card: #ffffff;
+    --card-foreground: #111827;
+    --popover: #ffffff;
+    --popover-foreground: #111827;
+    --muted: #f4f4f5;
+    --muted-foreground: #4b5563;
+    --border: #d4d4d8;
+    --input: #d4d4d8;
+    --accent: #f4f4f5;
+    --accent-foreground: #111827;
+    --primary: #1d4ed8;
+    --success: #15803d;
+    --warning: #b45309;
+    --destructive: #b91c1c;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    overflow: visible !important;
+  }
+
+  main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Keep cards and rows from splitting across pages. */
+  .surface,
+  [data-slot="accordion-item"],
+  ol > li,
+  ul > li {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a {
+    color: #111827 !important;
+    text-decoration: underline;
+  }
+}

@@ -64,7 +64,7 @@ export function AppLayout({
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-50 border-b border-border bg-background/70 backdrop-blur-xl">
+        <header className="sticky top-0 z-50 border-b border-border bg-background/70 backdrop-blur-xl print:hidden">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
             <div className="flex items-center gap-4">
               <Logo to="/dashboard" />
@@ -134,16 +134,20 @@ export function AppLayout({
           className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10"
         >
           {crumbs && crumbs.length > 0 && (
-            <div className="mb-6">
+            <div className="mb-6 print:hidden">
               <Breadcrumbs items={[{ label: "Dashboard", to: "/dashboard" }, ...crumbs]} />
             </div>
           )}
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between print:mb-4">
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
               {subtitle && <p className="mt-1 text-muted-foreground">{subtitle}</p>}
             </div>
-            {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+            {actions && (
+              <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+                {actions}
+              </div>
+            )}
           </div>
           {children}
         </motion.main>
