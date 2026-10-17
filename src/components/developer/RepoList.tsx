@@ -8,7 +8,7 @@ interface RepoListProps {
   projects: Project[];
   reports: Report[];
   selectedProject: Project | null;
-  selectedReviewId?: string;
+  selectedReviewId?: string | undefined;
   onSelectProject: (project: Project) => void;
   onSelectReview: (reviewId: string) => void;
   onDeleteProject: (projectId: string) => void;
@@ -116,7 +116,15 @@ export function RepoList({
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/70 py-8 text-center text-sm text-muted-foreground">
           <span className="mb-2 text-2xl">📋</span>
           <span>No projects yet.</span>
-          <Button className="mt-3" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onCreateNew(); }}>
+          <Button
+            className="mt-3"
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCreateNew();
+            }}
+          >
             New project
           </Button>
         </div>

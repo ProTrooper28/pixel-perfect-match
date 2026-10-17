@@ -85,15 +85,11 @@ const projectStatusClass = (status: string): string => {
 };
 
 function Dashboard() {
-  const {
-    user,
-    isLoading: authLoading,
-    profile,
-  } = useAuth();
+  const { user, isLoading: authLoading, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [reportsList, setReportsList] = useState<ReportRow[]>([]);
-  const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [reportsList, setReportsList] = useState<Report[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsFailed, setProjectsFailed] = useState(false);
 
@@ -104,9 +100,6 @@ function Dashboard() {
       // No Supabase session: never query (guests have no user id to filter on).
       // Guests render their browser-local submissions; signed-out visitors are
       // already being redirected by RequireAuth.
-      if (!user) return;
-      setReportsList(listReports(user.id));
-      setProjects(listProjects(user.id));
       setLoading(false);
       setFailed(false);
       setProjectsLoading(false);
@@ -157,7 +150,7 @@ function Dashboard() {
       .finally(() => setProjectsLoading(false));
   };
 
-  const reportsListSafe: ReportRow[] = reportsList.length > 0 ? reportsList : [];
+  const reportsListSafe: Report[] = reportsList.length > 0 ? reportsList : [];
   const completed = reportsListSafe.filter((r) => r.status === "Completed");
   const avg =
     completed.length > 0

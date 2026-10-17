@@ -47,6 +47,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { ReportSection } from "@/components/report/ReportSection";
 import { getReport } from "@/services/report.service";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { getGuestReport, type GuestReport } from "@/services/guest.service";
 import type { Report as ReportRow } from "@/types/database";
 import { report as reportDefaults } from "@/lib/mock-data";
 import { notify } from "@/lib/toast-messages";
@@ -66,6 +68,9 @@ export const Route = createFileRoute("/report/$id")({
   }),
   component: Report,
   loader: async ({ params }): Promise<ReportRow | null> => {
+    // Without Supabase there is nothing to query — guest reports live in this
+    // browser and are resolved by the component after mount.
+    if (!isSupabaseConfigured) return null;
     try {
       return await getReport(params.id);
     } catch (error) {

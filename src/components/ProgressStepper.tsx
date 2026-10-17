@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { FieldConstraint } from "@/components/form/Field";
+import { FieldConstraint } from "@/components/Form/Field";
 
 export interface ProgressStepperStep {
   icon?: ReactNode;
@@ -50,12 +50,7 @@ export function ProgressStepper({
               )}
             </button>
             {index < steps.length - 1 && (
-              <span
-                className={cn(
-                  "h-0.5 w-4 bg-border/60",
-                  isCompleted && "bg-primary/40",
-                )}
-              />
+              <span className={cn("h-0.5 w-4 bg-border/60", isCompleted && "bg-primary/40")} />
             )}
           </li>
         );

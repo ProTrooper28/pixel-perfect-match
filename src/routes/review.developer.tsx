@@ -25,12 +25,20 @@ import { notify } from "@/lib/toast-messages";
 import type { Project, Report } from "@/types/database";
 
 export const Route = createFileRoute("/review/developer")({
-  meta: () => [
-    { title: "Developer Reviews — BuildLens" },
-    { name: "description", content: "Review developer code and help ship better developer reviews." },
-    { property: "og:title", content: "Developer Reviews — BuildLens" },
-    { property: "og:description", content: "All your developer reviews in one place, with full review history." },
-  ],
+  head: () => ({
+    meta: [
+      { title: "Developer Reviews — BuildLens" },
+      {
+        name: "description",
+        content: "Review developer code and help ship better developer reviews.",
+      },
+      { property: "og:title", content: "Developer Reviews — BuildLens" },
+      {
+        property: "og:description",
+        content: "All your developer reviews in one place, with full review history.",
+      },
+    ],
+  }),
   component: ReviewDeveloperPage,
 });
 
@@ -54,15 +62,27 @@ export function ReviewDeveloperPage() {
 
   // --- Local stubs so the page compiles against the existing service and
   //     component shapes until the real implementations are wired in. ---
-  function listGuestProjects(): Project[] { return []; }
-  function listGuestReports(): Report[] { return []; }
-  async function submitReviewForUser(userId: string, reviewId: string, payload: ReviewPayload): Promise<void> {
+  function listGuestProjects(): Project[] {
+    return [];
+  }
+  function listGuestReports(): Report[] {
+    return [];
+  }
+  async function submitReviewForUser(
+    userId: string,
+    reviewId: string,
+    payload: ReviewPayload,
+  ): Promise<void> {
     return;
   }
   async function fetchReviewHistoryForProject(projectId: string): Promise<ReviewHistoryItem[]> {
     return [];
   }
-  async function deployProjectForUser(userId: string, projectId: string, deployPayload: DeployPayload): Promise<string[]> {
+  async function deployProjectForUser(
+    userId: string,
+    projectId: string,
+    deployPayload: DeployPayload,
+  ): Promise<string[]> {
     return [];
   }
 
@@ -105,7 +125,9 @@ export function ReviewDeveloperPage() {
         }
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, authLoading]);
 
   const deleteProjectById = async (projectId: string) => {
@@ -158,7 +180,7 @@ export function ReviewDeveloperPage() {
   return (
     <AppLayout
       title="Developer Reviews"
-      description="All your developer reviews in one place, with full review history."
+      subtitle="All your developer reviews in one place, with full review history."
       crumbs={[{ label: "Developer Reviews" }]}
       actions={
         isGuest ? (
@@ -189,19 +211,32 @@ export function ReviewDeveloperPage() {
           }}
         />
       ) : !projects.length && !reports.length ? (
-        <EmptyDeveloperDashboard onCreateNew={() => { window.location.href = "/dashboard"; }} />
+        <EmptyDeveloperDashboard
+          onCreateNew={() => {
+            window.location.href = "/dashboard";
+          }}
+        />
       ) : projects.length === 0 ? (
-        <EmptyDeveloperDashboard onCreateNew={() => { window.location.href = "/dashboard"; }} />
+        <EmptyDeveloperDashboard
+          onCreateNew={() => {
+            window.location.href = "/dashboard";
+          }}
+        />
       ) : reports.length === 0 ? (
-        <EmptyDeveloperDashboard onCreateNew={() => { window.location.href = "/dashboard"; }} />
+        <EmptyDeveloperDashboard
+          onCreateNew={() => {
+            window.location.href = "/dashboard";
+          }}
+        />
       ) : (
-        <ResizablePanelGroup direction="horizontal" className="gap-0">
+        <ResizablePanelGroup orientation="horizontal" className="gap-0">
           <ResizablePanel defaultSize={32} minSize={24} maxSize={40}>
             <Card className="h-full border-border/60 bg-card">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Projects & Reviews</CardTitle>
                 <CardDescription>
-                  {projects.length === 1 ? "1 project" : `${projects.length} projects`} · {reports.length === 1 ? "1 review" : `${reports.length} reviews`}
+                  {projects.length === 1 ? "1 project" : `${projects.length} projects`} ·{" "}
+                  {reports.length === 1 ? "1 review" : `${reports.length} reviews`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-0 pb-0">
@@ -214,7 +249,9 @@ export function ReviewDeveloperPage() {
                   onSelectReview={(reviewId) => setSelectedReviewId(reviewId)}
                   onDeleteProject={deleteProjectById}
                   onDeleteReport={deleteReportById}
-                  onCreateNew={() => { window.location.href = "/dashboard"; }}
+                  onCreateNew={() => {
+                    window.location.href = "/dashboard";
+                  }}
                   showProjectListSet={showProjectList}
                   setShowProjectList={setShowProjectList}
                   goBackToProjectList={goBackToProjectList}
@@ -255,7 +292,13 @@ export function ReviewDeveloperPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { window.location.href = "/dashboard"; }}>New review</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            window.location.href = "/dashboard";
+                          }}
+                        >
+                          New review
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -269,7 +312,13 @@ export function ReviewDeveloperPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { window.location.href = "/dashboard"; }}>New review</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            window.location.href = "/dashboard";
+                          }}
+                        >
+                          New review
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -290,10 +339,16 @@ export function ReviewDeveloperPage() {
                       setIsSubmitting(true);
                       try {
                         await submitReviewForUser(user.id, reviewId, payload);
-                        notify.success("Review submitted", "Your review has been saved and will be published.");
+                        notify.success(
+                          "Review submitted",
+                          "Your review has been saved and will be published.",
+                        );
                         setReviewHistory(await fetchReviewHistoryForProject(selectedProject.id));
                       } catch (err) {
-                        notify.error("Review failed", "We couldn't save your review. Please try again.");
+                        notify.error(
+                          "Review failed",
+                          "We couldn't save your review. Please try again.",
+                        );
                         console.error("Review submit error:", err);
                       } finally {
                         setIsSubmitting(false);
@@ -309,7 +364,10 @@ export function ReviewDeveloperPage() {
                         setDeployLogs(logs);
                         notify.success("Deploy started", "Your deployment is now in progress.");
                       } catch (err) {
-                        notify.error("Deploy failed", "We couldn't start your deployment. Please try again.");
+                        notify.error(
+                          "Deploy failed",
+                          "We couldn't start your deployment. Please try again.",
+                        );
                         console.error("Deploy error:", err);
                       } finally {
                         setIsSubmitting(false);
@@ -328,7 +386,9 @@ export function ReviewDeveloperPage() {
                     onSelectReview={(reviewId) => setSelectedReviewId(reviewId)}
                     onDeleteProject={deleteProjectById}
                     onDeleteReport={deleteReportById}
-                    onCreateNew={() => { window.location.href = "/dashboard"; }}
+                    onCreateNew={() => {
+                      window.location.href = "/dashboard";
+                    }}
                     showProjectListSet={showProjectList}
                     setShowProjectList={setShowProjectList}
                     goBackToProjectList={goBackToProjectList}
@@ -358,15 +418,15 @@ interface ReviewHistoryItem {
 }
 
 interface ReviewPayload {
-  overall_rating?: number;
-  review_text?: string;
-  review_score?: number;
-  safety_tip?: string;
+  overall_rating?: number | undefined;
+  review_text?: string | undefined;
+  review_score?: number | undefined;
+  safety_tip?: string | undefined;
 }
 
 interface DeployPayload {
-  commit_sha?: string;
-  branch?: string;
-  environment?: string;
-  notes?: string;
+  commit_sha?: string | undefined;
+  branch?: string | undefined;
+  environment?: string | undefined;
+  notes?: string | undefined;
 }

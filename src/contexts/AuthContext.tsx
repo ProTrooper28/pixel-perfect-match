@@ -1,4 +1,12 @@
-import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -54,8 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
 
     // getSession() rehydrates a persisted session and triggers the listener.
-    supabase
-      .auth.getSession()
+    supabase.auth
+      .getSession()
       .then(({ data }) => {
         setSession(data.session);
         setUser(data.session?.user ?? null);
@@ -112,16 +120,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const signUpWithEmail = useCallback(
-    async (params: SignUpWithEmailParams) => {
-      const result = await authService.signUpWithEmail(params);
-      // Creating an account ends any prior guest session.
-      setIsGuest(false);
-      writeGuestFlag(false);
-      return result;
-    },
-    [],
-  );
+  const signUpWithEmail = useCallback(async (params: SignUpWithEmailParams) => {
+    const result = await authService.signUpWithEmail(params);
+    // Creating an account ends any prior guest session.
+    setIsGuest(false);
+    writeGuestFlag(false);
+    return result;
+  }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     await authService.signInWithEmail(email, password);

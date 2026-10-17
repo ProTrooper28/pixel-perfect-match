@@ -36,17 +36,17 @@ interface ReviewDetailsProps {
 }
 
 interface ReviewPayload {
-  overall_rating?: number;
-  review_text?: string;
-  review_score?: number;
-  safety_tip?: string;
+  overall_rating?: number | undefined;
+  review_text?: string | undefined;
+  review_score?: number | undefined;
+  safety_tip?: string | undefined;
 }
 
 interface DeployPayload {
-  commit_sha?: string;
-  branch?: string;
-  environment?: string;
-  notes?: string;
+  commit_sha?: string | undefined;
+  branch?: string | undefined;
+  environment?: string | undefined;
+  notes?: string | undefined;
 }
 
 export function ReviewDetails({
@@ -148,7 +148,9 @@ export function ReviewDetails({
                     {review.overall_rating > 0 ? `${review.overall_rating}/5` : "No rating"}
                   </span>
                   {review.review_text && (
-                    <p className="ml-auto text-sm text-muted-foreground line-clamp-1">{review.review_text}</p>
+                    <p className="ml-auto text-sm text-muted-foreground line-clamp-1">
+                      {review.review_text}
+                    </p>
                   )}
                 </div>
               </button>
@@ -226,7 +228,9 @@ export function ReviewDetails({
               <CardDescription>Configure and trigger a deployment</CardDescription>
             </div>
             <div className="space-y-1 text-sm">
-              <Label htmlFor="enable-deploy" className="text-muted-foreground">Enable deploy</Label>
+              <Label htmlFor="enable-deploy" className="text-muted-foreground">
+                Enable deploy
+              </Label>
               <Switch
                 id="enable-deploy"
                 checked={enableDeploy}
@@ -238,7 +242,9 @@ export function ReviewDetails({
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Branch</label>
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Branch
+                </label>
                 <Input
                   type="text"
                   value={deployBranch}
@@ -247,7 +253,9 @@ export function ReviewDetails({
                 />
               </div>
               <div>
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Environment</label>
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Environment
+                </label>
                 <Input
                   type="text"
                   value={deployEnvironment}
@@ -257,7 +265,9 @@ export function ReviewDetails({
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Notes (optional)</label>
+              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Notes (optional)
+              </label>
               <Textarea
                 placeholder="Deployment notes..."
                 value={deployNotes}
