@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,17 @@ import { EmptyDeveloperDashboard } from "@/components/EmptyDeveloperDashboard";
 import { ErrorState } from "@/components/state/ErrorState";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
-import { listProjects, deleteProject } from "@/services/project.service";
-import { listReports, deleteReport } from "@/services/report.service";
+import { deleteProject } from "@/services/project.service";
+import { deleteReport } from "@/services/report.service";
+import type { ReportSummary } from "@/services/report.service";
+import {
+  projectsQueryKey,
+  reportsQueryKey,
+  useProjectsQuery,
+  useReportsQuery,
+} from "@/hooks/useWorkspaceQueries";
 import { notify } from "@/lib/toast-messages";
-import type { Project, Report } from "@/types/database";
+import type { Project } from "@/types/database";
 
 export const Route = createFileRoute("/review/developer")({
   head: () => ({
@@ -42,14 +49,10 @@ export const Route = createFileRoute("/review/developer")({
   component: ReviewDeveloperPage,
 });
 
-export function ReviewDeveloperPage() {
+function ReviewDeveloperPage() {
   const { user, isGuest, isLoading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [reports, setReports] = useState<Report[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(true);
-  const [projectsFailed, setProjectsFailed] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showProjectList, setShowProjectList] = useState(true);
@@ -62,12 +65,6 @@ export function ReviewDeveloperPage() {
 
   // --- Local stubs so the page compiles against the existing service and
   //     component shapes until the real implementations are wired in. ---
-  function listGuestProjects(): Project[] {
-    return [];
-  }
-  function listGuestReports(): Report[] {
-    return [];
-  }
   async function submitReviewForUser(
     userId: string,
     reviewId: string,
@@ -86,56 +83,29 @@ export function ReviewDeveloperPage() {
     return [];
   }
 
-  useEffect(() => {
-    if (authLoading) return;
+  // Shared cache: revisiting this page paints instantly with whatever the
+  // dashboard already loaded, then revalidates in the background.
+  const projectsQuery = useProjectsQuery(user?.id);
+  const reportsQuery = useReportsQuery(user?.id);
+  const projects = projectsQuery.data ?? [];
+  const reports = reportsQuery.data ?? [];
+  const loading = authLoading || projectsQuery.isPending || reportsQuery.isPending;
+  const failed = projectsQuery.isError || reportsQuery.isError;
 
-    if (!user) {
-      setProjects(isGuest ? listGuestProjects() : []);
-      setReports(isGuest ? listGuestReports() : []);
-      setLoading(false);
-      setFailed(false);
-      setProjectsLoading(false);
-      setProjectsFailed(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    setLoading(true);
-    setFailed(false);
-
-    const projectsPromise = listProjects(user.id).catch(() => null);
-    const reportsPromise = listReports(user.id).catch(() => null);
-
-    Promise.all([projectsPromise, reportsPromise])
-      .then(([pRows, rRows]) => {
-        if (cancelled) return;
-        setProjects(pRows ?? []);
-        setReports(rRows ?? []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-          setProjectsLoading(false);
-          setProjectsFailed(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, authLoading]);
+  const retry = () => {
+    if (!user) return;
+    void projectsQuery.refetch();
+    void reportsQuery.refetch();
+  };
 
   const deleteProjectById = async (projectId: string) => {
     if (!user) return;
 
     try {
       await deleteProject(projectId);
-      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      queryClient.setQueryData<Project[]>(projectsQueryKey(user.id), (prev) =>
+        prev ? prev.filter((p) => p.id !== projectId) : prev,
+      );
       notify.success("Project deleted", "This project has been removed from your dashboard.");
     } catch {
       notify.error("Delete failed", "Couldn't delete the project. Please try again.");
@@ -147,7 +117,9 @@ export function ReviewDeveloperPage() {
 
     try {
       await deleteReport(reportId);
-      setReports((prev) => prev.filter((r) => r.id !== reportId));
+      queryClient.setQueryData<ReportSummary[]>(reportsQueryKey(user.id), (prev) =>
+        prev ? prev.filter((r) => r.id !== reportId) : prev,
+      );
       notify.success("Report deleted", "This report has been removed from your dashboard.");
     } catch {
       notify.error("Delete failed", "Couldn't delete the report. Please try again.");
@@ -204,28 +176,24 @@ export function ReviewDeveloperPage() {
         <ErrorState
           title="Couldn't load your reviews"
           description="We couldn't reach your review history. Your local data is still available offline, and we'll retry automatically."
-          onRetry={() => {
-            setFailed(false);
-            setLoading(true);
-            setTimeout(() => setLoading(false), 700);
-          }}
+          onRetry={retry}
         />
       ) : !projects.length && !reports.length ? (
         <EmptyDeveloperDashboard
           onCreateNew={() => {
-            window.location.href = "/dashboard";
+            void navigate({ to: "/dashboard" });
           }}
         />
       ) : projects.length === 0 ? (
         <EmptyDeveloperDashboard
           onCreateNew={() => {
-            window.location.href = "/dashboard";
+            void navigate({ to: "/dashboard" });
           }}
         />
       ) : reports.length === 0 ? (
         <EmptyDeveloperDashboard
           onCreateNew={() => {
-            window.location.href = "/dashboard";
+            void navigate({ to: "/dashboard" });
           }}
         />
       ) : (
@@ -250,7 +218,7 @@ export function ReviewDeveloperPage() {
                   onDeleteProject={deleteProjectById}
                   onDeleteReport={deleteReportById}
                   onCreateNew={() => {
-                    window.location.href = "/dashboard";
+                    void navigate({ to: "/dashboard" });
                   }}
                   showProjectListSet={showProjectList}
                   setShowProjectList={setShowProjectList}
@@ -294,7 +262,7 @@ export function ReviewDeveloperPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => {
-                            window.location.href = "/dashboard";
+                            void navigate({ to: "/dashboard" });
                           }}
                         >
                           New review
@@ -314,7 +282,7 @@ export function ReviewDeveloperPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => {
-                            window.location.href = "/dashboard";
+                            void navigate({ to: "/dashboard" });
                           }}
                         >
                           New review
@@ -387,7 +355,7 @@ export function ReviewDeveloperPage() {
                     onDeleteProject={deleteProjectById}
                     onDeleteReport={deleteReportById}
                     onCreateNew={() => {
-                      window.location.href = "/dashboard";
+                      void navigate({ to: "/dashboard" });
                     }}
                     showProjectListSet={showProjectList}
                     setShowProjectList={setShowProjectList}

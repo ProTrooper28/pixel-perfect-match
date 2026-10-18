@@ -1,7 +1,8 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
-import { motion } from "framer-motion";
-import { FolderGit2, History, LayoutDashboard, UserSearch, LogOut, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { FolderGit2, History, LayoutDashboard, UserSearch, LogOut, X, Menu } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -11,7 +12,9 @@ import { Breadcrumbs, type Crumb } from "./Breadcrumbs";
 import { notify } from "@/lib/toast-messages";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { usePrefetchWorkspace } from "@/hooks/useWorkspaceQueries";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { AnimatedPage, EASE_OUT } from "@/components/motion/primitives";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -19,6 +22,15 @@ const links = [
   { to: "/review/developer", label: "Developer", icon: UserSearch },
   { to: "/reports", label: "Reports", icon: History },
 ] as const;
+
+/** Which nav item owns the current path (report detail belongs to Reports). */
+function isLinkActive(pathname: string, to: string): boolean {
+  if (to === "/reports") return pathname === "/reports" || pathname.startsWith("/report/");
+  if (to === "/review/project") {
+    return pathname.startsWith("/review/project") || pathname.startsWith("/progress");
+  }
+  return pathname === to;
+}
 
 export function AppLayout({
   children,
@@ -35,6 +47,10 @@ export function AppLayout({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const prefetchWorkspace = usePrefetchWorkspace();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -51,35 +67,60 @@ export function AppLayout({
       notify.error("Sign out failed", "Please try again.");
       return;
     }
-    // hard navigate to marketing home, avoids client cache issues
-    window.location.assign("/");
+    // Drop any cached workspace rows before returning to the marketing home.
+    queryClient.clear();
+    void navigate({ to: "/", replace: true });
   };
 
   return (
     <RequireAuth>
-      <div className="min-h-screen">
+      <div className="app-canvas min-h-screen">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-50 border-b border-border bg-background/70 backdrop-blur-xl print:hidden">
+        <header className="sticky top-0 z-50 border-b border-border/80 bg-background/75 backdrop-blur-xl print:hidden">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
             <div className="flex items-center gap-4">
               <Logo to="/dashboard" />
               <Separator orientation="vertical" className="hidden h-5 md:block" decorative />
-              <nav className="hidden items-center gap-1 md:flex" aria-label="App">
-                {links.map((l) => (
-                  <Link
-                    key={l.to}
-                    to={l.to}
-                    className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[status=active]:bg-accent data-[status=active]:text-foreground"
-                  >
-                    <l.icon className="h-4 w-4" />
-                    {l.label}
-                  </Link>
-                ))}
+              <nav
+                className="hidden items-center gap-1 md:flex"
+                aria-label="App"
+                onPointerEnter={prefetchWorkspace}
+                onFocus={prefetchWorkspace}
+              >
+                {links.map((l) => {
+                  const active = isLinkActive(pathname, l.to);
+                  return (
+                    <Link
+                      key={l.to}
+                      to={l.to}
+                      className={cn(
+                        "group relative inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                        active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="app-nav-active"
+                          transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                          className="absolute inset-0 rounded-md border border-primary/20 bg-primary/[0.09]"
+                          aria-hidden
+                        />
+                      )}
+                      <l.icon
+                        className={cn(
+                          "relative h-4 w-4 transition-transform duration-200 group-hover:-translate-y-px",
+                          active && "text-primary",
+                        )}
+                      />
+                      <span className="relative">{l.label}</span>
+                    </Link>
+                  );
+                })}
               </nav>
             </div>
             <div className="flex items-center gap-1">
@@ -88,10 +129,10 @@ export function AppLayout({
                 variant="ghost"
                 size="icon"
                 aria-label="Sign out"
-                disabled={false}
+                className="text-muted-foreground hover:text-foreground"
                 onClick={handleSignOut}
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-4 w-4 transition-transform duration-200 hover:-translate-x-px" />
               </Button>
               <Button
                 variant="ghost"
@@ -102,55 +143,85 @@ export function AppLayout({
                 aria-label="Toggle navigation menu"
                 onClick={() => setMenuOpen((o) => !o)}
               >
-                {menuOpen ? <X className="h-5 w-5" /> : <LayoutDashboard className="h-5 w-5" />}
+                {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
             </div>
           </div>
-          {menuOpen && (
-            <nav
-              id="app-mobile-menu"
-              className="border-t border-border px-2 py-2 md:hidden"
-              aria-label="App mobile"
-            >
-              {links.map((l) => (
-                <Link
-                  key={l.to}
-                  to={l.to}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-foreground"
+          <AnimatePresence initial={false}>
+            {menuOpen && (
+              <motion.nav
+                id="app-mobile-menu"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: EASE_OUT }}
+                className="overflow-hidden border-t border-border/80 md:hidden"
+                aria-label="App mobile"
+              >
+                <div
+                  className="space-y-0.5 px-2 py-2"
+                  onPointerEnter={prefetchWorkspace}
+                  onFocus={prefetchWorkspace}
                 >
-                  <l.icon className="h-4 w-4" />
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
-          )}
+                  {links.map((l) => {
+                    const active = isLinkActive(pathname, l.to);
+                    return (
+                      <Link
+                        key={l.to}
+                        to={l.to}
+                        onClick={() => setMenuOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                          active
+                            ? "bg-primary/[0.09] text-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        )}
+                      >
+                        <l.icon className={cn("h-4 w-4", active && "text-primary")} />
+                        {l.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </motion.nav>
+            )}
+          </AnimatePresence>
         </header>
-        <motion.main
-          id="main-content"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10"
-        >
-          {crumbs && crumbs.length > 0 && (
-            <div className="mb-6 print:hidden">
-              <Breadcrumbs items={[{ label: "Dashboard", to: "/dashboard" }, ...crumbs]} />
-            </div>
-          )}
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between print:mb-4">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-              {subtitle && <p className="mt-1 text-muted-foreground">{subtitle}</p>}
-            </div>
-            {actions && (
-              <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
-                {actions}
+        <AnimatedPage className="relative z-10">
+          <main id="main-content" className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+            {crumbs && crumbs.length > 0 && (
+              <div className="mb-6 print:hidden">
+                <Breadcrumbs items={[{ label: "Dashboard", to: "/dashboard" }, ...crumbs]} />
               </div>
             )}
-          </div>
-          {children}
-        </motion.main>
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: EASE_OUT }}
+              className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between print:mb-4"
+            >
+              <div className="min-w-0">
+                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+                {subtitle && (
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.22, delay: 0.04 }}
+                    className="mt-1 text-muted-foreground"
+                  >
+                    {subtitle}
+                  </motion.p>
+                )}
+              </div>
+              {actions && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+                  {actions}
+                </div>
+              )}
+            </motion.div>
+            {children}
+          </main>
+        </AnimatedPage>
       </div>
     </RequireAuth>
   );

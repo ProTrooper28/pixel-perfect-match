@@ -31,10 +31,13 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-border: var(--border);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
   --shadow-glow: var(--glow);
+  --shadow-glow-soft: var(--glow-soft);
   --shadow-card: var(--card-shadow);
 }
 
@@ -62,6 +65,10 @@
   --input: oklch(0.91 0.006 260);
   --ring: oklch(0.623 0.188 259.8);
   --glow: 0 8px 30px -8px color-mix(in oklab, var(--primary) 60%, transparent);
+  --glow-soft: 0 16px 40px -26px color-mix(in oklab, var(--primary) 55%, transparent);
+  --lens-shadow: oklch(0.2 0.01 265 / 0.06);
+  --surface: oklch(1 0 0);
+  --surface-hover: oklch(0.975 0.004 260);
   --card-shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px -12px oklch(0 0 0 / 0.12);
 }
 
@@ -81,12 +88,20 @@
   --destructive: oklch(0.65 0.21 25);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 12%);
+  --surface: oklch(0.178 0.004 285.8);
+  --surface-hover: oklch(0.205 0.006 285.8);
+  --glow-soft: 0 18px 44px -28px oklch(0.62 0.19 259.8 / 0.55);
+  --lens-shadow: oklch(0 0 0 / 0.32);
   --card-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 12px 32px -16px oklch(0 0 0 / 0.6);
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
-  html { scroll-behavior: smooth; }
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -98,14 +113,26 @@
 
 @utility grid-bg {
   background-image:
-    linear-gradient(to right, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px);
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    );
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse at center top, black 30%, transparent 75%);
 }
 
 @utility text-gradient {
-  background: linear-gradient(180deg, var(--foreground) 30%, color-mix(in oklab, var(--foreground) 50%, transparent));
+  background: linear-gradient(
+    180deg,
+    var(--foreground) 30%,
+    color-mix(in oklab, var(--foreground) 50%, transparent)
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -118,10 +145,457 @@
   box-shadow: var(--card-shadow);
 }
 
+/* ------------------------------------------------------------ ambience */
+
+/* Precision inspection surface: a near-black workspace with a large recessed
+   circular structure, faint concentric depth rings and soft blue-gray light.
+   Pure CSS, fixed, pointer-transparent — never affects layout or contrast. */
+.app-canvas {
+  position: relative;
+  background-color: var(--background);
+  background-image:
+    radial-gradient(
+      circle 58vmax at 50% 4%,
+      color-mix(in oklab, var(--surface) 45%, transparent) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      circle 78vmax at 50% 4%,
+      transparent 52%,
+      var(--lens-shadow) 62%,
+      transparent 74%
+    ),
+    radial-gradient(
+      120% 70% at 50% -14%,
+      color-mix(in oklab, var(--primary) 6%, transparent),
+      transparent 60%
+    );
+}
+
+.app-canvas::before,
+.app-canvas::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.app-canvas::before {
+  background-image: repeating-radial-gradient(
+    circle at 50% 6%,
+    transparent 0 118px,
+    color-mix(in oklab, var(--primary) 13%, transparent) 118px 119px
+  );
+  opacity: 0.4;
+  mask-image: radial-gradient(circle at 50% 6%, black 0 16%, transparent 64%);
+  animation: lens-breathe 34s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.app-canvas::after {
+  background-image: repeating-radial-gradient(
+    circle at 50% 6%,
+    transparent 0 239px,
+    color-mix(in oklab, var(--foreground) 8%, transparent) 239px 240px
+  );
+  opacity: 0.3;
+  mask-image: radial-gradient(circle at 50% 6%, transparent 0 24%, black 44%, transparent 80%);
+  animation: lens-breathe 46s ease-in-out infinite reverse;
+  will-change: transform, opacity;
+}
+
+/* Barely perceptible: 1–2% scale over ~35s. Disabled by the reduced-motion
+   block at the end of this file. */
+@keyframes lens-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.32;
+  }
+  50% {
+    transform: scale(1.012);
+    opacity: 0.44;
+  }
+}
+
+/* ------------------------------------------------------------- surfaces */
+
+.card-lift {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    background-color 220ms ease;
+}
+
+@media (hover: hover) {
+  .card-lift:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--border) 45%, var(--primary) 55%);
+    box-shadow: var(--glow-soft);
+  }
+}
+
+.card-lift:focus-within {
+  border-color: color-mix(in oklab, var(--border) 55%, var(--primary) 45%);
+}
+
+/* Lightweight hover glow, used on the few non-metric surfaces that already had
+   it. Coordinates come from CSS variables, so pointer movement never triggers
+   a React render. */
+.ambient-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.ambient-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Negative + isolation keeps the glow above the card surface and below the
+     content, without touching the positioning of any child element. */
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  background: radial-gradient(
+    320px circle at var(--spot-x, 50%) var(--spot-y, 0%),
+    color-mix(in oklab, var(--primary) 9%, transparent),
+    transparent 68%
+  );
+}
+
+@media (hover: hover) {
+  .ambient-card:hover::before {
+    opacity: 1;
+  }
+}
+
+/* -------------------------------------------------------------- spotlight */
+
+/* Premium cursor spotlight: a soft blue light inside the card and a lit 1px
+   border segment. Driven by CSS variables written from one rAF loop. */
+.spotlight-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms ease;
+}
+
+.spotlight-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: max(
+    calc(var(--spotlight-active, 0) * var(--spotlight-intensity, 0.1)),
+    calc(var(--spotlight-ambient, 0) * var(--spotlight-intensity, 0.1) * 0.6)
+  );
+  background: radial-gradient(
+    circle var(--spotlight-size, 220px) at var(--spotlight-x, 50%) var(--spotlight-y, 0%),
+    color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, transparent) 0%,
+    color-mix(in oklab, var(--spotlight-color, #3b82f6) 22%, transparent) 42%,
+    transparent calc(var(--spotlight-size, 220px) * var(--spotlight-softness, 0.8))
+  );
+}
+
+.spotlight-shell[data-shape="ellipse"]::before {
+  background: radial-gradient(
+    var(--spotlight-size, 220px) calc(var(--spotlight-size, 220px) * 0.7) at var(--spotlight-x, 50%)
+      var(--spotlight-y, 0%),
+    color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, transparent) 0%,
+    color-mix(in oklab, var(--spotlight-color, #3b82f6) 22%, transparent) 42%,
+    transparent calc(var(--spotlight-size, 220px) * var(--spotlight-softness, 0.8))
+  );
+}
+
+.spotlight-shell[data-ambient] {
+  --spotlight-ambient: 1;
+}
+
+/* Border light: a 1px ring masked out of a radial highlight. */
+.spotlight-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  opacity: calc(var(--spotlight-active, 0) * var(--spotlight-border, 0.35));
+  background: radial-gradient(
+    180px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0%),
+    color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, white),
+    transparent 72%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.spotlight-flare {
+  position: absolute;
+  left: var(--spotlight-x, 50%);
+  top: var(--spotlight-y, 0%);
+  /* Behind the card content so the light never sits over a glyph. */
+  z-index: -1;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, white);
+  opacity: calc(var(--spotlight-active, 0) * 0.3);
+  filter: blur(2.5px);
+  pointer-events: none;
+}
+
+.spotlight-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
+}
+
+/* Dashboard metric cards: the only place the full spotlight runs. */
+.stat-card {
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 240ms ease;
+}
+
+@media (hover: hover) {
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px -26px color-mix(in oklab, var(--primary) 50%, transparent);
+  }
+}
+
+/* -------------------------------------------------------------- controls */
+
+/* Premium CTA: soft top highlight, a single sheen sweep on hover, and a
+   press state. No looping animation. */
+.btn-hero {
+  position: relative;
+  overflow: hidden;
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--primary) 88%, white),
+    var(--primary) 55%,
+    color-mix(in oklab, var(--primary) 88%, black)
+  );
+  box-shadow:
+    0 1px 0 oklch(1 0 0 / 0.18) inset,
+    0 10px 26px -14px color-mix(in oklab, var(--primary) 80%, transparent);
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 200ms ease,
+    box-shadow 220ms ease;
+}
+
+@media (hover: hover) {
+  .btn-hero:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+
+  .btn-lift:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+}
+
+.btn-hero:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.btn-hero::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 45%;
+  transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.22), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn-hero:hover:not(:disabled)::after {
+  animation: sheen 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sheen {
+  from {
+    left: -60%;
+    opacity: 0.9;
+  }
+  to {
+    left: 120%;
+    opacity: 0;
+  }
+}
+
+/* Premium moving accent, reserved for the primary evaluation CTA. A single
+   blue arc travels the 1px border; nothing inside the button moves. */
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.moving-border {
+  position: relative;
+  overflow: hidden;
+  padding: 1px;
+  isolation: isolate;
+}
+
+.moving-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: conic-gradient(
+    from var(--border-angle),
+    transparent 0deg 248deg,
+    color-mix(in oklab, var(--primary) 70%, transparent) 306deg,
+    color-mix(in oklab, var(--primary) 18%, transparent) 336deg,
+    transparent 360deg
+  );
+  animation: border-orbit var(--border-duration, 7s) linear infinite;
+}
+
+@keyframes border-orbit {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Indeterminate progress for actions whose backend reports no percentage. */
+.indeterminate-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  background: oklch(1 0 0 / 0.16);
+}
+
+.indeterminate-track::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.75);
+  animation: indeterminate 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Inputs: calm border transition plus a soft blue focus halo. */
+.field-focus {
+  transition:
+    border-color 180ms ease,
+    box-shadow 220ms ease,
+    background-color 180ms ease;
+}
+
+.field-focus:focus-visible {
+  border-color: color-mix(in oklab, var(--primary) 60%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 16%, transparent);
+}
+
+/* ------------------------------------------------------------- feedback */
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 45%, transparent);
+  }
+  50% {
+    opacity: 0.65;
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+
+.animate-status-pulse {
+  animation: status-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    color-mix(in oklab, var(--muted) 55%, var(--foreground)) 40%,
+    var(--muted) 80%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.8s linear infinite;
+}
+
+/* --------------------------------------------------------- accessibility */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .card-lift:hover {
+    transform: none;
+  }
+
+  .btn-hero::after {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------------- print */
 
 @media print {
-  @page { margin: 14mm; }
+  @page {
+    margin: 14mm;
+  }
 
   /* Reports must print on white paper even when dark mode is active. */
   :root,

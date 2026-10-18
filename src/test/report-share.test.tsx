@@ -53,6 +53,13 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/services/report.service", () => ({
   getReport: (id: string) => getReport(id),
+  // The page shell loads a summary projection first, then fetches the full row.
+  getReportSummary: async (id: string) => {
+    const row = (await getReport(id)) as Record<string, unknown> | null;
+    if (!row) return null;
+    const { report_data: _reportData, ...summary } = row;
+    return summary;
+  },
 }));
 
 interface AuthStub {

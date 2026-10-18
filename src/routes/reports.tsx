@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   EllipsisVertical,
@@ -14,7 +15,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -44,9 +44,10 @@ import { EmptyState } from "@/components/state/EmptyState";
 import { ErrorState } from "@/components/state/ErrorState";
 import { scoreTone } from "@/components/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
-import { listReports, listReportsParallel, deleteReport } from "@/services/report.service";
+import { deleteReport } from "@/services/report.service";
 import type { ReportSummary } from "@/services/report.service";
-import type { Report } from "@/types/database";
+import { reportsQueryKey, useReportsQuery } from "@/hooks/useWorkspaceQueries";
+import { AnimatedNumber, LoadingState, StatusBadge } from "@/components/motion/primitives";
 import { notify } from "@/lib/toast-messages";
 
 export const Route = createFileRoute("/reports")({
@@ -64,11 +65,11 @@ export const Route = createFileRoute("/reports")({
   component: Reports,
 });
 
-const statusClass = (status: string): string => {
-  if (status === "Completed") return "border-success/30 bg-success/10 text-success";
-  if (status === "In Progress") return "border-warning/30 bg-warning/10 text-warning";
-  if (status === "Failed") return "border-destructive/30 bg-destructive/10 text-destructive";
-  return "border-muted bg-muted/50 text-muted-foreground";
+const statusTone = (status: string): "success" | "warning" | "destructive" | "neutral" => {
+  if (status === "Completed") return "success";
+  if (status === "In Progress") return "warning";
+  if (status === "Failed") return "destructive";
+  return "neutral";
 };
 
 function rowActions(r: ReportSummary, onDelete: () => void) {
@@ -86,14 +87,8 @@ function rowActions(r: ReportSummary, onDelete: () => void) {
             icon: Trash2,
             onClick: () => {
               onDelete();
-              notify.undoable(
-                "Report deleted",
-                `${r.name} removed from history.`,
-                () =>
-                  notify.success(
-                    "Undelete is limited in this demo",
-                    "This would call the API.",
-                  ),
+              notify.undoable("Report deleted", `${r.name} removed from history.`, () =>
+                notify.success("Undelete is limited in this demo", "This would call the API."),
               );
             },
           },
@@ -104,33 +99,15 @@ function rowActions(r: ReportSummary, onDelete: () => void) {
 
 function Reports() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [rows, setRows] = useState<ReportSummary[]>([]);
+  const reportsQuery = useReportsQuery(user?.id);
+  const rows = reportsQuery.data ?? [];
+  const loading = reportsQuery.isLoading;
+  const failed = reportsQuery.isError && rows.length === 0;
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
-
-  useEffect(() => {
-    if (authLoading || !user) return;
-
-    let cancelled = false;
-    setLoading(true);
-    setFailed(false);
-
-    // Parallel list: both queries are started at the same time, so the history
-    // page can render its shell while secondary calls drain.
-    const [items] = await Promise.all([
-      listReportsParallel(user!.id),
-    ]);
-    if (cancelled) return;
-    setRows(items);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, authLoading]);
 
   const visible = rows.filter(
     (r) =>
@@ -145,12 +122,15 @@ function Reports() {
     Developer: rows.filter((r) => r.type === "Developer").length,
   };
 
-  const openRow = (r: Report) => navigate({ to: "/report/$id", params: { id: r.id } });
+  const openRow = (r: ReportSummary) => navigate({ to: "/report/$id", params: { id: r.id } });
 
-  const deleteRow = async (r: Report) => {
+  const deleteRow = async (r: ReportSummary) => {
     try {
       await deleteReport(r.id);
-      setRows((prev) => prev.filter((x) => x.id !== r.id));
+      // Update the shared cache so the dashboard reflects the delete too.
+      queryClient.setQueryData<ReportSummary[]>(reportsQueryKey(user?.id), (prev) =>
+        (prev ?? []).filter((item) => item.id !== r.id),
+      );
       notify.success("Report deleted", `${r.name} removed from history.`);
     } catch {
       notify.error("Delete failed", "Couldn't remove this report.");
@@ -164,11 +144,8 @@ function Reports() {
         subtitle="Every evaluation, in one place."
         crumbs={[{ label: "Reports" }]}
       >
-        <div className="h-64 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <div className="h-4 w-4 animate-spin rounded-full border-primary border-t-transparent" />
-            Loading reports…
-          </div>
+        <div className="surface mx-auto max-w-md p-6">
+          <LoadingState label="Loading reports…" rows={4} />
         </div>
       </AppLayout>
     );
@@ -198,7 +175,8 @@ function Reports() {
               setStatus("all");
             }}
             aria-pressed={type === t}
-            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:border-primary/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
+            data-active={type === t}
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm transition-colors duration-200 hover:border-primary/30 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 data-[active=true]:border-primary/50 data-[active=true]:bg-primary/10 data-[active=true]:text-primary"
           >
             {t === "Project" && <FolderGit2 className="h-3.5 w-3.5" />}
             {t === "Developer" && <UserSearch className="h-3.5 w-3.5" />}
@@ -249,9 +227,7 @@ function Reports() {
         <ErrorState
           title="Couldn't load report history"
           onRetry={() => {
-            setFailed(false);
-            setLoading(true);
-            setTimeout(() => setLoading(false), 700);
+            void reportsQuery.refetch();
           }}
         />
       ) : (
@@ -332,9 +308,9 @@ function Reports() {
                           {new Date(r.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      <Badge variant="outline" className={statusClass(r.status)}>
+                      <StatusBadge tone={statusTone(r.status)} pulse={r.status === "In Progress"}>
                         {r.status}
-                      </Badge>
+                      </StatusBadge>
                     </button>
                   </motion.li>
                 ))}
@@ -368,7 +344,7 @@ function Reports() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") openRow(r);
                         }}
-                        className="cursor-pointer outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        className="group cursor-pointer outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                         aria-label={`Open report for ${r.name}`}
                       >
                         <TableCell className="font-medium">{r.name}</TableCell>
@@ -377,14 +353,17 @@ function Reports() {
                           {r.created_at}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={statusClass(r.status)}>
+                          <StatusBadge
+                            tone={statusTone(r.status)}
+                            pulse={r.status === "In Progress"}
+                          >
                             {r.status}
-                          </Badge>
+                          </StatusBadge>
                         </TableCell>
                         <TableCell
                           className={`text-right font-mono ${r.score ? scoreTone(r.score) : "text-muted-foreground"}`}
                         >
-                          {r.score ?? "—"}
+                          {typeof r.score === "number" ? <AnimatedNumber value={r.score} /> : "—"}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -393,7 +372,7 @@ function Reports() {
                                 variant="ghost"
                                 size="icon"
                                 aria-label={`Actions for ${r.name}`}
-                                className="h-8 w-8"
+                                className="h-8 w-8 opacity-70 transition-opacity duration-200 group-hover:opacity-100"
                               >
                                 <EllipsisVertical className="h-4 w-4" />
                               </Button>

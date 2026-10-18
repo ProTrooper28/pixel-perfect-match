@@ -1,12 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, type FormEvent } from "react";
-import { AlertCircle, CheckCircle2, Globe, Sparkles, UserRound } from "lucide-react";
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { motion } from "framer-motion";
+import { AlertCircle, CheckCircle2, Globe, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { FileDrop, type FileDropStatus } from "@/components/FileDrop";
+import { EASE_OUT } from "@/components/motion/primitives";
+import { SubmitButton, type SubmitButtonState } from "@/components/ui/submit-button";
+import { MovingBorder } from "@/components/ui/moving-border";
 import { useAuth } from "@/hooks/useAuth";
 import { createProjectForUser } from "@/services/project.service";
 import { createReportForUser } from "@/services/report.service";
@@ -46,6 +50,23 @@ function validateUrl(value: string) {
 /** Attachment metadata carried into `report_data.attachments`. */
 type Attachment = { name: string; size: number; type: string };
 
+/** Inline validation message that slides in without shifting the layout. */
+function FieldError({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <motion.p
+      id={id}
+      role="alert"
+      initial={{ opacity: 0, y: -2 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: EASE_OUT }}
+      className="flex items-center gap-1.5 text-xs font-medium text-destructive"
+    >
+      <AlertCircle className="h-3.5 w-3.5" />
+      {children}
+    </motion.p>
+  );
+}
+
 function ReviewProject() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -56,7 +77,9 @@ function ReviewProject() {
   const [deckStatus, setDeckStatus] = useState<FileDropStatus>("idle");
   const [videoStatus, setVideoStatus] = useState<FileDropStatus>("idle");
   const [deckFile, setDeckFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitState, setSubmitState] = useState<SubmitButtonState>("idle");
+  const errorResetTimer = useRef<number | null>(null);
+  const busy = submitState === "submitting" || submitState === "processing";
 
   const { user, isGuest, isLoading: authLoading } = useAuth();
 
@@ -130,15 +153,37 @@ function ReviewProject() {
     });
   };
 
+  /**
+   * Hand off to the analysis page with real ids, after a short success beat.
+   * The analysis itself runs there, so this button never claims the evaluation
+   * has finished when only the submission has.
+   */
+  const finishSubmission = (projectId: string, reportId: string, projectName: string) => {
+    setSubmitState("success");
+    notify.success("Project submitted", `${projectName} is queued for investigation.`);
+    window.setTimeout(() => {
+      navigate({ to: "/progress", search: { projectId, reportId } });
+    }, 400);
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched({ name: true, repo: true, live: true });
-    if (!canSubmit || authLoading) {
+    if (!canSubmit || authLoading || busy) {
       notify.error("Check your inputs", "Complete the highlighted fields before analyzing.");
       return;
     }
 
-    setSubmitting(true);
+    // A retry before the error state resets must not be overwritten by the old timer.
+    if (errorResetTimer.current !== null) {
+      window.clearTimeout(errorResetTimer.current);
+      errorResetTimer.current = null;
+    }
+
+    setSubmitState("submitting");
+    // Indeterminate stages appear only if the request is genuinely slow.
+    const stageTimer = window.setTimeout(() => setSubmitState("processing"), 1200);
+
     try {
       // Guest submissions never reach Supabase (no session ⇒ no user id); they are
       // stored in this browser and rendered by the same pages as real rows.
@@ -170,8 +215,8 @@ function ReviewProject() {
           isGuestSubmission: true,
         });
 
-        notify.success("Project submitted", `${project.name} is queued for investigation.`);
-        navigate({ to: "/progress", search: { projectId: project.id, reportId: report.id } });
+        window.clearTimeout(stageTimer);
+        finishSubmission(project.id, report.id, project.name);
         return;
       }
 
@@ -204,12 +249,18 @@ function ReviewProject() {
         isGuestSubmission: false,
       });
 
-      notify.success("Project submitted", `${project.name} is queued for investigation.`);
-      navigate({ to: "/progress", search: { projectId: project.id, reportId: report.id } });
+      window.clearTimeout(stageTimer);
+      finishSubmission(project.id, report.id, project.name);
     } catch (error) {
+      window.clearTimeout(stageTimer);
+      console.error(error);
+      setSubmitState("error");
       notify.error("Submission failed", "We couldn't create this project review.");
-    } finally {
-      setSubmitting(false);
+      // Return to the idle label so the action stays available for a retry.
+      errorResetTimer.current = window.setTimeout(() => {
+        setSubmitState("idle");
+        errorResetTimer.current = null;
+      }, 3200);
     }
   };
 
@@ -241,15 +292,7 @@ function ReviewProject() {
           className={`${Icon ? "pl-9" : ""} ${hasError ? "border-destructive focus-visible:ring-destructive" : isValid && value ? "border-success/50" : ""}`}
         />
       </div>
-      {hasError && (
-        <p
-          id={`${id}-err`}
-          role="alert"
-          className="flex items-center gap-1.5 text-xs font-medium text-destructive"
-        >
-          <AlertCircle className="h-3.5 w-3.5" /> Enter a valid URL (https://…)
-        </p>
-      )}
+      {hasError && <FieldError id={`${id}-err`}>Enter a valid URL (https://…)</FieldError>}
     </div>
   );
 
@@ -259,7 +302,14 @@ function ReviewProject() {
       subtitle="Tell us where to look. We'll gather the evidence."
       crumbs={[{ label: "Review Project" }]}
     >
-      <form className="surface mx-auto max-w-3xl space-y-7 p-6 sm:p-8" onSubmit={submit} noValidate>
+      <motion.form
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: EASE_OUT }}
+        className="surface mx-auto max-w-3xl space-y-7 p-6 sm:p-8"
+        onSubmit={submit}
+        noValidate
+      >
         {isGuest ? (
           <p className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-foreground">
             <UserRound className="h-4 w-4 shrink-0 text-primary" aria-hidden />
@@ -292,13 +342,7 @@ function ReviewProject() {
               className={showNameError ? "border-destructive focus-visible:ring-destructive" : ""}
             />
             {showNameError && (
-              <p
-                id="pname-err"
-                role="alert"
-                className="flex items-center gap-1.5 text-xs font-medium text-destructive"
-              >
-                <AlertCircle className="h-3.5 w-3.5" /> Please give the project a name.
-              </p>
+              <FieldError id="pname-err">Please give the project a name.</FieldError>
             )}
           </div>
 
@@ -372,34 +416,44 @@ function ReviewProject() {
           >
             {needs.map((n) => (
               <li key={n.key} className="flex items-center gap-2 py-1 last:pb-0">
-                {n.met ? (
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                )}
+                <motion.span
+                  key={String(n.met)}
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 26 }}
+                  className="grid place-items-center"
+                  aria-hidden
+                >
+                  {n.met ? (
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </motion.span>
                 <span className={n.met ? "text-success" : "text-muted-foreground"}>{n.text}</span>
               </li>
             ))}
           </ul>
 
-          <Button
-            type="submit"
-            variant="hero"
-            size="lg"
-            className="h-12 w-full text-base"
-            disabled={!canSubmit || submitting}
-            aria-disabled={!canSubmit}
-          >
-            {submitting ? (
-              "Submitting…"
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" /> Analyze Project
-              </>
-            )}
-          </Button>
+          <div className="space-y-2">
+            <MovingBorder className="w-full" radius="0.625rem">
+              <SubmitButton
+                type="submit"
+                size="lg"
+                state={submitState}
+                idleLabel="Analyze Project"
+                successLabel="Evaluation started"
+                className="h-12 w-full text-base"
+                disabled={!canSubmit}
+                aria-disabled={!canSubmit}
+              />
+            </MovingBorder>
+            <p className="text-center text-xs text-muted-foreground">
+              Every finding is tied to evidence. Nothing is invented.
+            </p>
+          </div>
         </div>
-      </form>
+      </motion.form>
     </AppLayout>
   );
 }

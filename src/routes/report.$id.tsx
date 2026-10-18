@@ -6,10 +6,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   Check,
+  CircuitBoard,
   ClipboardCheck,
   Copy,
   Download,
   ExternalLink,
+  FileCheck2,
+  FileText,
   FileWarning,
   Gauge,
   Gavel,
@@ -22,9 +25,9 @@ import {
   ListChecks,
   Loader2,
   MessagesSquare,
+  Plus,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   Wrench,
   XCircle,
@@ -50,8 +53,16 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { ReportSection } from "@/components/report/ReportSection";
 import { ErrorState } from "@/components/state/ErrorState";
+import {
+  AmbientCard,
+  EvaluationPipeline,
+  LoadingState,
+  StaggerContainer,
+  StaggerItem,
+  type PipelineStage,
+} from "@/components/motion/primitives";
 import { PerformanceChart, RepositoryChart } from "@/components/Charts";
-import { getReportSummary, getReport } from "@/services/report.service";
+import { getReportSummary, getReport, type ReportSummary } from "@/services/report.service";
 import { getGuestReport, type GuestReport } from "@/services/guest.service";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -72,8 +83,16 @@ import {
 } from "@/lib/report-share";
 
 interface ReportLoaderData {
-  row: ReportRow | null;
+  row: ReportSummary | null;
   error: string | null;
+}
+
+/** Read the analyst payload from whichever row shape we have (summary rows omit it). */
+function reportDataOf(
+  row: ReportSummary | ReportRow | GuestReport | null,
+): ReportRow["report_data"] | null {
+  if (!row || !("report_data" in row)) return null;
+  return row.report_data ?? null;
 }
 
 export const Route = createFileRoute("/report/$id")({
@@ -265,41 +284,46 @@ function Report() {
     setGuestResolved(true);
   }, [loaderRow, id]);
 
-  // Prefer the full row (loaded lazily) so the detailed view has the real
-  // report_data payload. The summary (id, name, status, score, dates) is still
-  // available immediately for the shell.
-  const reportRow = fullRow ?? loaderRow ?? guestRow;
-
   // The loader returns a summary (fast, no report_data). The full analyst
   // payload is fetched lazily after first paint so the UI can show the shell
   // immediately and only render the detailed sections once the data arrives.
   const [reportData, setReportData] = useState<ReportView | null>(null);
-  const [fullRow, setFullRow] = useState<Report | null>(null);
-  const [dataLoading, setDataLoading] = useState(false);
+  const [fullRow, setFullRow] = useState<ReportRow | null>(null);
+  // A summary row means the payload fetch is about to start — render skeletons
+  // from the first paint instead of flashing empty sections.
+  const [dataLoading, setDataLoading] = useState(loaderRow !== null);
 
-  const loadReportData = async () => {
-    if (fullRow || !reportRow) return;
-    setDataLoading(true);
-    try {
-      const row = await getReport(reportRow.id);
-      if (row) {
-        setFullRow(row);
-        const view = normalizeReportData(row.report_data);
-        if (!reportData) setReportData(view);
-      }
-    } catch {
-      // Keep the summary UI: a failure here never blocks the page.
-    } finally {
-      setDataLoading(false);
-    }
-  };
+  // Prefer the full row (loaded lazily) so the detailed view has the real
+  // report_data payload. The summary (id, name, status, score, dates) is still
+  // available immediately for the shell.
+  const reportRow: ReportSummary | ReportRow | GuestReport | null =
+    fullRow ?? loaderRow ?? guestRow;
 
-  // Fetch the full report (with report_data) after the summary renders.
+  const status = normalizeReportStatus(reportRow?.status);
+  const view = reportData ?? normalizeReportData(reportDataOf(reportRow));
+
+  // Fetch the full report (with report_data) after the summary shell renders.
+  // Guest rows already carry their payload, so only summary rows hit the network.
   useEffect(() => {
-    if (loaderRow && !dataLoading) loadReportData();
+    if (!loaderRow) return;
+    let cancelled = false;
+    setDataLoading(true);
+    getReport(loaderRow.id)
+      .then((row) => {
+        if (cancelled || !row) return;
+        setFullRow(row);
+        setReportData(normalizeReportData(row.report_data));
+      })
+      .catch(() => {
+        // Keep the summary UI: a failure here never blocks the page.
+      })
+      .finally(() => {
+        if (!cancelled) setDataLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [loaderRow]);
-
-  const reportView = reportData ?? normalizeReportData(reportRow.report_data);
 
   const [copying, setCopying] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -439,7 +463,7 @@ function Report() {
             </Button>
             <Button asChild>
               <Link to="/review/project">
-                <Sparkles className="h-4 w-4" /> New project review
+                <Plus className="h-4 w-4" /> New project review
               </Link>
             </Button>
           </div>
@@ -448,12 +472,6 @@ function Report() {
     );
   }
 
-  // Use the lazy-loaded `reportData` when it has arrived; otherwise build the
-  // shell from the summary row's own `report_data` (only available inside the
-  // authenticated app, where the loader returns the full row). For guests the
-  // summary has no payload, so fall back to an empty view and show a
-  // non-blocking progress indicator while the detail loads.
-  const view = reportData ?? normalizeReportData(reportRow.report_data ?? null);
   const overall =
     view.scores.overall ??
     (typeof reportRow.score === "number" && Number.isFinite(reportRow.score)
@@ -464,6 +482,43 @@ function Report() {
   const dimensions = scoreDimensions({ ...view, scores: { ...view.scores, overall } });
   const scoredDimensions = dimensions.filter((d) => d.score !== null);
   const findings = view.risks.length > 0 ? view.risks : view.security.findings;
+
+  // Pipeline states come from what the report actually contains — never faked.
+  const running = status.kind === "in_progress";
+  const pipelineStages: PipelineStage[] = [
+    {
+      label: "Evidence gathered",
+      icon: <ShieldCheck className="h-3.5 w-3.5" />,
+      state: view.hasPayloadData || view.claims.length > 0 ? "done" : running ? "active" : "pending",
+    },
+    {
+      label: "Repository analyzed",
+      icon: <Github className="h-3.5 w-3.5" />,
+      state: view.repository || view.architecture.stack.length > 0 ? "done" : running ? "active" : "pending",
+    },
+    {
+      label: "Project evaluated",
+      icon: <ListChecks className="h-3.5 w-3.5" />,
+      state: view.hasPayloadData ? "done" : running ? "active" : "pending",
+    },
+    {
+      label: "AI scoring",
+      icon: <TrendingUp className="h-3.5 w-3.5" />,
+      state: scoredDimensions.length > 0 ? "done" : running ? "active" : "pending",
+    },
+    {
+      label: "Report generated",
+      icon: <FileCheck2 className="h-3.5 w-3.5" />,
+      state:
+        status.kind === "completed"
+          ? "done"
+          : status.kind === "failed"
+            ? "error"
+            : running
+              ? "active"
+              : "pending",
+    },
+  ];
 
   const statusEdge =
     status.kind === "completed"
@@ -569,72 +624,71 @@ function Report() {
         </div>
 
         {/* Hero score cards */}
-        <div className="grid gap-5 lg:grid-cols-3">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="surface flex items-center gap-6 p-6"
-          >
-            <ScoreRing value={overall} label="/ 100" />
-            <div>
-              <p className="text-sm text-muted-foreground">Overall Score</p>
-              <p className={`mt-1 text-lg font-semibold ${band.className}`}>{band.label}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {overall === null
-                  ? "No score stored for this report."
-                  : `Stored score · ${status.kind === "completed" ? "final" : "not final"}`}
-              </p>
-            </div>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.06 }}
-            className="surface flex items-center gap-6 p-6"
-          >
-            <ScoreRing value={view.scores.evidence} label="/ 100" />
-            <div>
-              <p className="text-sm text-muted-foreground">Evidence Score</p>
-              <p className="mt-1 text-lg font-semibold">
-                {view.claims.length > 0
-                  ? `${verifiedClaims} of ${view.claims.length} claims verified`
-                  : "No claims recorded"}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {view.claims.length > 0
-                  ? `${view.claims.length - verifiedClaims} unverified — see Claim Verification`
-                  : "Claim verification runs with the analysis."}
-              </p>
-            </div>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            className="surface space-y-4 p-6"
-          >
-            {view.metrics.length > 0 ? (
-              view.metrics.map((m) => (
-                <div key={m.label}>
-                  <div className="mb-1.5 flex justify-between text-sm">
-                    <span>{m.label}</span>
-                    <span
-                      className={`font-mono ${m.score === null ? "text-muted-foreground" : scoreTone(m.score)}`}
-                    >
-                      {m.score ?? "—"}
-                    </span>
+        <StaggerContainer className="grid gap-5 lg:grid-cols-3">
+          <StaggerItem>
+            <AmbientCard className="surface flex h-full items-center gap-6 p-6">
+              <ScoreRing value={overall} label="/ 100" />
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">Overall Score</p>
+                <p className={`mt-1 text-lg font-semibold ${band.className}`}>{band.label}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {overall === null
+                    ? "No score stored for this report."
+                    : `Stored score · ${status.kind === "completed" ? "final" : "not final"}`}
+                </p>
+              </div>
+            </AmbientCard>
+          </StaggerItem>
+          <StaggerItem>
+            <AmbientCard className="surface flex h-full items-center gap-6 p-6">
+              <ScoreRing value={view.scores.evidence} label="/ 100" />
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">Evidence Score</p>
+                <p className="mt-1 text-lg font-semibold">
+                  {view.claims.length > 0
+                    ? `${verifiedClaims} of ${view.claims.length} claims verified`
+                    : "No claims recorded"}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {view.claims.length > 0
+                    ? `${view.claims.length - verifiedClaims} unverified — see Claim Verification`
+                    : "Claim verification runs with the analysis."}
+                </p>
+              </div>
+            </AmbientCard>
+          </StaggerItem>
+          <StaggerItem>
+            <AmbientCard className="surface space-y-4 p-6">
+              {view.metrics.length > 0 ? (
+                view.metrics.map((m) => (
+                  <div key={m.label}>
+                    <div className="mb-1.5 flex justify-between text-sm">
+                      <span>{m.label}</span>
+                      <span
+                        className={`font-mono ${m.score === null ? "text-muted-foreground" : scoreTone(m.score)}`}
+                      >
+                        {m.score ?? "—"}
+                      </span>
+                    </div>
+                    <Progress value={m.score ?? 0} className="h-1.5" />
                   </div>
-                  <Progress value={m.score ?? 0} className="h-1.5" />
-                </div>
-              ))
-            ) : (
-              <EmptyNote>No per-metric scores were stored with this report.</EmptyNote>
-            )}
-          </motion.div>
-        </div>
+                ))
+              ) : (
+                <EmptyNote>No per-metric scores were stored with this report.</EmptyNote>
+              )}
+            </AmbientCard>
+          </StaggerItem>
+        </StaggerContainer>
+
+        {/* Evidence pipeline */}
+        <EvaluationPipeline stages={pipelineStages} />
 
         {/* Collapsible sections */}
-        {(!reportData || view.hasPayloadData) ? (
+        {dataLoading && !view.hasPayloadData ? (
+          <div className="surface p-6">
+            <LoadingState label="Loading report analysis…" rows={6} />
+          </div>
+        ) : (
           <Accordion
           type="multiple"
           value={openSections}
@@ -644,7 +698,7 @@ function Report() {
           <ReportSection
             value="summary"
             title="Executive Summary"
-            icon={<Sparkles className="h-4 w-4" />}
+            icon={<FileText className="h-4 w-4" />}
             defaultOpen
           >
             {view.executiveSummary ? (
@@ -1281,7 +1335,7 @@ function Report() {
             <ReportSection
               value="innovation"
               title="Innovation"
-              icon={<Sparkles className="h-4 w-4" />}
+              icon={<CircuitBoard className="h-4 w-4" />}
               tone="success"
             >
               <div className="flex items-baseline gap-2">
@@ -1384,13 +1438,9 @@ function Report() {
               </ol>
             </ReportSection>
           )}
-        </Accordion>      ) : reportData === null ? (
-        <div className="flex flex-col items-center justify-center py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4animate-spin mb-2" />
-          Loading report analysis…
-        </div>
-      ) : null
-   }</div>
+        </Accordion>
+        )}
+      </div>
     </AppLayout>
   );
 }

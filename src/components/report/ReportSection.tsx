@@ -31,11 +31,14 @@ export function ReportSection({
   className,
 }: ReportSectionProps) {
   return (
-    <AccordionItem value={value}>
-      <AccordionTrigger className="gap-3 py-4 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+    <AccordionItem value={value} className="group/section">
+      <AccordionTrigger className="-mx-2 gap-3 rounded-lg px-2 py-4 transition-colors duration-200 hover:bg-muted/25 hover:no-underline data-[state=open]:bg-muted/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
         <span className="flex items-center gap-3 text-left">
           <span
-            className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", toneRing[tone])}
+            className={cn(
+              "grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-transform duration-200 group-hover/section:scale-[1.04]",
+              toneRing[tone],
+            )}
             aria-hidden
           >
             {icon}

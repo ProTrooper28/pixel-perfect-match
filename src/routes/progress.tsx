@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Circle,
   ExternalLink,
+  FileCheck2,
   FileText,
   FolderGit2,
   Gauge,
@@ -18,7 +19,6 @@ import {
   RotateCcw,
   ScanSearch,
   ShieldCheck,
-  Sparkles,
   Timer,
   type LucideIcon,
 } from "lucide-react";
@@ -83,7 +83,7 @@ const STEPS = [
   { key: "website", title: "Checking Website", icon: Globe },
   { key: "performance", title: "Running Performance Tests", icon: Gauge },
   { key: "evidence", title: "Building Evidence", icon: ShieldCheck },
-  { key: "report", title: "Generating Final Report", icon: Sparkles },
+  { key: "report", title: "Generating Final Report", icon: FileCheck2 },
 ] as const;
 
 type StepStatus = "pending" | "active" | "done" | "skipped" | "error";
@@ -96,7 +96,7 @@ const STAGE_ICONS: Record<string, LucideIcon> = {
   quality: Gauge,
   security: ShieldCheck,
   documentation: FileText,
-  report: Sparkles,
+  report: FileCheck2,
 };
 
 function normalizeStageState(state: string): StepStatus {
@@ -475,7 +475,7 @@ function ProgressPage() {
                 </Button>
                 <Button asChild>
                   <Link to="/review/project">
-                    <Sparkles className="h-4 w-4" /> New project review
+                    <ArrowRight className="h-4 w-4" /> New project review
                   </Link>
                 </Button>
               </div>
@@ -508,7 +508,7 @@ function ProgressPage() {
               "Preparing…"
             ) : (
               <>
-                <Sparkles className="h-4 w-4" /> View Report
+                <ArrowRight className="h-4 w-4" /> View Report
               </>
             )}
           </Button>

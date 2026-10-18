@@ -26,7 +26,7 @@ export {
 export function PerformanceChart({
   vitals,
 }: {
-  vitals: { name: string; value: number | null; threshold: number | null }[];
+  vitals: { name: string; value: number | null; threshold: number | null; unit?: string | null }[];
 }) {
   return (
     <>

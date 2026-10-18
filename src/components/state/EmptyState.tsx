@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
@@ -11,17 +11,19 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
+  const reduce = useReducedMotion();
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={reduce ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.22 }}
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-xl px-6 py-16 text-center",
+        "flex flex-col items-center justify-center gap-3 px-6 py-16 text-center",
         className,
       )}
     >
-      <div className="grid h-12 w-12 place-items-center rounded-full bg-muted text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">
+      <div className="grid h-12 w-12 place-items-center rounded-xl border border-border/80 bg-muted/40 text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">
         {icon}
       </div>
       <div className="space-y-1">

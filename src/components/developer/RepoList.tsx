@@ -2,11 +2,12 @@ import { type ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Project, Report } from "@/types/database";
+import type { Project } from "@/types/database";
+import type { ReportSummary } from "@/services/report.service";
 
 interface RepoListProps {
   projects: Project[];
-  reports: Report[];
+  reports: ReportSummary[];
   selectedProject: Project | null;
   selectedReviewId?: string | undefined;
   onSelectProject: (project: Project) => void;

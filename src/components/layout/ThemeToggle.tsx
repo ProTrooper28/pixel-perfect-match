@@ -14,8 +14,18 @@ export function ThemeToggle() {
     localStorage.setItem("buildlens-theme", next ? "dark" : "light");
   };
   return (
-    <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
-      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggle}
+      aria-label="Toggle theme"
+      className="group text-muted-foreground hover:text-foreground"
+    >
+      {dark ? (
+        <Sun className="h-4 w-4 transition-transform duration-300 group-hover:rotate-45" />
+      ) : (
+        <Moon className="h-4 w-4 transition-transform duration-300 group-hover:-rotate-12" />
+      )}
     </Button>
   );
 }
