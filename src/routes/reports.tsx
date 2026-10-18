@@ -44,7 +44,8 @@ import { EmptyState } from "@/components/state/EmptyState";
 import { ErrorState } from "@/components/state/ErrorState";
 import { scoreTone } from "@/components/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
-import { listReports, deleteReport } from "@/services/report.service";
+import { listReports, listReportsParallel, deleteReport } from "@/services/report.service";
+import type { ReportSummary } from "@/services/report.service";
 import type { Report } from "@/types/database";
 import { notify } from "@/lib/toast-messages";
 
@@ -70,7 +71,7 @@ const statusClass = (status: string): string => {
   return "border-muted bg-muted/50 text-muted-foreground";
 };
 
-function rowActions(r: Report, onDelete: () => void) {
+function rowActions(r: ReportSummary, onDelete: () => void) {
   return [
     {
       label: "Open report",
@@ -106,7 +107,7 @@ function Reports() {
   const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [rows, setRows] = useState<Report[]>([]);
+  const [rows, setRows] = useState<ReportSummary[]>([]);
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
@@ -118,16 +119,13 @@ function Reports() {
     setLoading(true);
     setFailed(false);
 
-    listReports(user!.id)
-      .then((items) => {
-        if (!cancelled) setRows(items);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    // Parallel list: both queries are started at the same time, so the history
+    // page can render its shell while secondary calls drain.
+    const [items] = await Promise.all([
+      listReportsParallel(user!.id),
+    ]);
+    if (cancelled) return;
+    setRows(items);
 
     return () => {
       cancelled = true;

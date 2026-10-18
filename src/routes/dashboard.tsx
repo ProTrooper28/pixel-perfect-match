@@ -21,7 +21,7 @@ import { ErrorState } from "@/components/state/ErrorState";
 import { CardRowSkeleton } from "@/components/state/skeletons";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
-import { listReports } from "@/services/report.service";
+import { listReports, listReportsParallel } from "@/services/report.service";
 import { listProjects } from "@/services/project.service";
 import type { Project, Report } from "@/types/database";
 import { notify } from "@/lib/toast-messages";
@@ -113,27 +113,17 @@ function Dashboard() {
     setProjectsLoading(true);
     setProjectsFailed(false);
 
-    listReports(user!.id)
-      .then((rows) => {
-        if (!cancelled) setReportsList(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    // Parallel list: both queries start at the same time, and the page renders
+    // the moment the first set of data arrives instead of waiting for both.
+    const [reportsRows, projectsRows] = await Promise.all([
+      listReportsParallel(user!.id),
+      listProjects(user!.id),
+    ]);
+    if (cancelled) return;
 
-    listProjects(user!.id)
-      .then((rows) => {
-        if (!cancelled) setProjects(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setProjectsFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setProjectsLoading(false);
-      });
+    setReportsList(reportsRows);
+    setProjects(projectsRows);
+    setLoading(false);
 
     return () => {
       cancelled = true;
@@ -150,6 +140,16 @@ function Dashboard() {
       .finally(() => setProjectsLoading(false));
   };
 
+  const retryReports = () => {
+    if (!user) return;
+    setLoading(true);
+    setFailed(false);
+    listReportsParallel(user!.id)
+      .then((rows) => setReportsList(rows))
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  };
+
   const reportsListSafe: Report[] = reportsList.length > 0 ? reportsList : [];
   const completed = reportsListSafe.filter((r) => r.status === "Completed");
   const avg =
@@ -161,7 +161,7 @@ function Dashboard() {
   ).length;
   const recent = reportsListSafe.slice(0, 4);
 
-  if (authLoading || (!user && !profile)) {
+  if (authLoading || !user) {
     return (
       <AppLayout
         title="Good evening"
@@ -202,14 +202,7 @@ function Dashboard() {
             <ErrorState
               title="Couldn't load workspace stats"
               description="Your reports didn't come through."
-              onRetry={() => {
-                setLoading(true);
-                setFailed(false);
-                listReports(user!.id)
-                  .then((rows) => setReportsList(rows))
-                  .catch(() => setFailed(true))
-                  .finally(() => setLoading(false));
-              }}
+              onRetry={retryReports}
             />
           </div>
         ) : (
@@ -424,14 +417,7 @@ function Dashboard() {
             <ErrorState
               compact
               title="Recent reports unavailable"
-              onRetry={() => {
-                setLoading(true);
-                setFailed(false);
-                listReports(user!.id)
-                  .then((rows) => setReportsList(rows))
-                  .catch(() => setFailed(true))
-                  .finally(() => setLoading(false));
-              }}
+              onRetry={retryReports}
               className="rounded-none"
             />
           ) : recent.length === 0 ? (

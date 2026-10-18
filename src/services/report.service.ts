@@ -2,16 +2,31 @@ import { getSupabase } from "@/lib/supabase";
 import type { Report, ReportInsert, ReportUpdate } from "@/types/database";
 import { toAuthMessage } from "@/utils/errors";
 
-/** List the signed-in user's reports, newest first. */
-export async function listReports(userId: string): Promise<Report[]> {
+/**
+ * Projection rows used by the list pages: only the columns the UI renders.
+ * The full `report_data` JSON (which can be tens of KB) is deliberately left
+ * out of these queries so history and the dashboard never transfer it.
+ */
+export type ReportSummary = Pick<
+  Report,
+  "id" | "user_id" | "project_id" | "type" | "name" | "status" | "score" | "created_at" | "updated_at"
+>;
+
+/** List the signed-in user's reports (summary projection, newest first). */
+export async function listReports(userId: string): Promise<ReportSummary[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("reports")
-    .select("*")
+    .select("id, user_id, project_id, type, name, status, score, created_at, updated_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(toAuthMessage(error));
   return data ?? [];
+}
+
+/** Parallel list of the signed-in user's reports (summary projection). */
+export async function listReportsParallel(userId: string): Promise<ReportSummary[]> {
+  return listReports(userId);
 }
 
 /**
@@ -30,11 +45,23 @@ export function isReportId(value: string): boolean {
 }
 
 /**
- * Fetch a single report by id.
- *
- * Malformed ids resolve to `null` without touching Supabase; valid ids query as
- * before.
+ * Fetch a single report by id (summary projection for the /report/$id page
+ * shell; keeps the 100+ KB `report_data` payload off the initial request).
  */
+export async function getReportSummary(id: string): Promise<ReportSummary | null> {
+  if (!isReportId(id)) return null;
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("id, user_id, project_id, type, name, status, score, created_at, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(toAuthMessage(error));
+  return data ?? null;
+}
+
+/** Fetch the full row (with report_data) — only used on the individual report page. */
 export async function getReport(id: string): Promise<Report | null> {
   if (!isReportId(id)) return null;
 

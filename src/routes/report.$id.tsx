@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
 import {
@@ -43,13 +43,15 @@ import {
 import { Accordion } from "@radix-ui/react-accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { ReportSection } from "@/components/report/ReportSection";
 import { ErrorState } from "@/components/state/ErrorState";
-import { getReport } from "@/services/report.service";
+import { PerformanceChart, RepositoryChart } from "@/components/Charts";
+import { getReportSummary, getReport } from "@/services/report.service";
 import { getGuestReport, type GuestReport } from "@/services/guest.service";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -93,7 +95,10 @@ export const Route = createFileRoute("/report/$id")({
     // browser and are resolved by the component after mount.
     if (!isSupabaseConfigured) return { row: null, error: null };
     try {
-      return { row: await getReport(params.id), error: null };
+      // Summary only: the initial request deliberately excludes the large
+      // `report_data` JSON so the page shell can paint instantly. The full
+      // analyst payload is fetched on demand (see `loadReportData` below).
+      return { row: await getReportSummary(params.id), error: null };
     } catch (error) {
       console.error(error);
       return {
@@ -260,7 +265,41 @@ function Report() {
     setGuestResolved(true);
   }, [loaderRow, id]);
 
-  const reportRow = loaderRow ?? guestRow;
+  // Prefer the full row (loaded lazily) so the detailed view has the real
+  // report_data payload. The summary (id, name, status, score, dates) is still
+  // available immediately for the shell.
+  const reportRow = fullRow ?? loaderRow ?? guestRow;
+
+  // The loader returns a summary (fast, no report_data). The full analyst
+  // payload is fetched lazily after first paint so the UI can show the shell
+  // immediately and only render the detailed sections once the data arrives.
+  const [reportData, setReportData] = useState<ReportView | null>(null);
+  const [fullRow, setFullRow] = useState<Report | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
+
+  const loadReportData = async () => {
+    if (fullRow || !reportRow) return;
+    setDataLoading(true);
+    try {
+      const row = await getReport(reportRow.id);
+      if (row) {
+        setFullRow(row);
+        const view = normalizeReportData(row.report_data);
+        if (!reportData) setReportData(view);
+      }
+    } catch {
+      // Keep the summary UI: a failure here never blocks the page.
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  // Fetch the full report (with report_data) after the summary renders.
+  useEffect(() => {
+    if (loaderRow && !dataLoading) loadReportData();
+  }, [loaderRow]);
+
+  const reportView = reportData ?? normalizeReportData(reportRow.report_data);
 
   const [copying, setCopying] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -409,8 +448,12 @@ function Report() {
     );
   }
 
-  const view = normalizeReportData(reportRow.report_data);
-  const status = normalizeReportStatus(reportRow.status);
+  // Use the lazy-loaded `reportData` when it has arrived; otherwise build the
+  // shell from the summary row's own `report_data` (only available inside the
+  // authenticated app, where the loader returns the full row). For guests the
+  // summary has no payload, so fall back to an empty view and show a
+  // non-blocking progress indicator while the detail loads.
+  const view = reportData ?? normalizeReportData(reportRow.report_data ?? null);
   const overall =
     view.scores.overall ??
     (typeof reportRow.score === "number" && Number.isFinite(reportRow.score)
@@ -591,7 +634,8 @@ function Report() {
         </div>
 
         {/* Collapsible sections */}
-        <Accordion
+        {(!reportData || view.hasPayloadData) ? (
+          <Accordion
           type="multiple"
           value={openSections}
           onValueChange={setOpenSections}
@@ -834,44 +878,20 @@ function Report() {
                   ))}
                 </div>
                 <div className="mt-4">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <LineChart
-                      data={view.performance.vitals.map((v) => ({
-                        name: v.name,
-                        value: v.value ?? 0,
-                        threshold: v.threshold ?? 0,
-                      }))}
-                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeOpacity={0.15} vertical={false} />
-                      <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis fontSize={11} tickLine={false} axisLine={false} width={36} />
-                      <RechartsTooltip
-                        contentStyle={{
-                          background: "var(--popover)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          fontSize: 12,
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="threshold"
-                        stroke="var(--muted-foreground)"
-                        strokeDasharray="4 4"
-                        dot={false}
-                        name="Threshold"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke="var(--primary)"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        name="Measured"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <Suspense
+                    fallback={
+                      <div className="h-[180px] w-full animate-pulse rounded-lg bg-muted/40" />
+                    }
+                  >
+                    <PerformanceChart
+                      vitals=
+                        {view.performance.vitals.map((v) => ({
+                          name: v.name,
+                          value: v.value ?? null,
+                          threshold: v.threshold ?? null,
+                        }))}
+                    />
+                  </Suspense>
                 </div>
               </>
             )}
@@ -1160,24 +1180,15 @@ function Report() {
                   <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Commit activity
                   </p>
-                  <ResponsiveContainer width="100%" height={140}>
-                    <BarChart
-                      data={view.repository.commitActivity}
-                      margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-                    >
-                      <XAxis dataKey="day" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis fontSize={11} tickLine={false} axisLine={false} width={24} />
-                      <RechartsTooltip
-                        contentStyle={{
-                          background: "var(--popover)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          fontSize: 12,
-                        }}
-                      />
-                      <Bar dataKey="commits" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <Suspense
+                    fallback={
+                      <div className="h-[140px] w-full animate-pulse rounded-lg bg-muted/40" />
+                    }
+                  >
+                    <RepositoryChart
+                      commitActivity={view.repository.commitActivity}
+                    />
+                  </Suspense>
                 </div>
               )}
               {view.repository.notes.length > 0 && (
@@ -1373,8 +1384,13 @@ function Report() {
               </ol>
             </ReportSection>
           )}
-        </Accordion>
-      </div>
+        </Accordion>      ) : reportData === null ? (
+        <div className="flex flex-col items-center justify-center py-16 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4animate-spin mb-2" />
+          Loading report analysis…
+        </div>
+      ) : null
+   }</div>
     </AppLayout>
   );
 }
