@@ -18,13 +18,14 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { BackToTop } from "@/components/layout/BackToTop";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AppearanceProvider } from "@/components/appearance/AppearanceContext";
+import { AppearanceLayer } from "@/components/appearance/AppearanceLayer";
 
 function NotFoundComponent() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-16">
-      <div className="grid-bg pointer-events-none absolute inset-0" aria-hidden />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-16">
       <div className="relative max-w-lg text-center">
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary/15 text-primary">
           <Compass className="h-8 w-8" aria-hidden />
@@ -66,7 +67,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
@@ -141,14 +142,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const themeScript = `try{if(localStorage.getItem('buildlens-theme')==='light')document.documentElement.classList.remove('dark')}catch(e){}`;
+/**
+ * Pre-paint appearance. Runs before the first paint so the canvas tint is
+ * already the stored one — no flash of the default theme, and nothing for the
+ * provider to disagree with when it adopts the state on mount.
+ */
+const appearanceScript = `try{var r=document.documentElement;if(localStorage.getItem('buildlens-theme')==='light')r.classList.remove('dark');r.setAttribute('data-bg',localStorage.getItem('buildlens-background')||'minimal')}catch(e){}`;
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: appearanceScript }} />
       </head>
       <body>
         {children}
@@ -164,9 +170,15 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
-        <BackToTop />
-        <Toaster richColors position="bottom-right" />
+        {/* Appearance wraps the app but receives its subtree as `children`, so
+            picking a new background re-renders the layer and the picker only —
+            never the pages themselves. */}
+        <AppearanceProvider>
+          <AppearanceLayer />
+          <Outlet />
+          <BackToTop />
+          <Toaster richColors position="bottom-right" />
+        </AppearanceProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

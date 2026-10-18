@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as EvaluationRouteImport } from './routes/evaluation'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as HackathonsRouteImport } from './routes/hackathons'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -22,9 +24,20 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as EvaluationCompareRouteImport } from './routes/evaluation.compare'
+import { Route as EvaluationCriteriaRouteImport } from './routes/evaluation.criteria'
+import { Route as EvaluationLeaderboardRouteImport } from './routes/evaluation.leaderboard'
+import { Route as EvaluationProjectRouteImport } from './routes/evaluation.project'
+import { Route as EvaluationResumeRouteImport } from './routes/evaluation.resume'
+import { Route as HackathonsIndexRouteImport } from './routes/hackathons.index'
+import { Route as HackathonsCodeRouteImport } from './routes/hackathons.$code'
 import { Route as ReportIdRouteImport } from './routes/report.$id'
 import { Route as ReviewDeveloperRouteImport } from './routes/review.developer'
 import { Route as ReviewProjectRouteImport } from './routes/review.project'
+import { Route as EvaluationProjectIdRouteImport } from './routes/evaluation.project.$id'
+import { Route as EvaluationResumeIdRouteImport } from './routes/evaluation.resume.$id'
+import { Route as HackathonsCodeProjectProjectIdRouteImport } from './routes/hackathons.$code.project.$projectId'
+import { Route as HackathonsCodeResumeResumeIdRouteImport } from './routes/hackathons.$code.resume.$resumeId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,9 +59,19 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvaluationRoute = EvaluationRouteImport.update({
+  id: '/evaluation',
+  path: '/evaluation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FeaturesRoute = FeaturesRouteImport.update({
   id: '/features',
   path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HackathonsRoute = HackathonsRouteImport.update({
+  id: '/hackathons',
+  path: '/hackathons',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HowItWorksRoute = HowItWorksRouteImport.update({
@@ -91,6 +114,41 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvaluationCompareRoute = EvaluationCompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
+  getParentRoute: () => EvaluationRoute,
+} as any)
+const EvaluationCriteriaRoute = EvaluationCriteriaRouteImport.update({
+  id: '/criteria',
+  path: '/criteria',
+  getParentRoute: () => EvaluationRoute,
+} as any)
+const EvaluationLeaderboardRoute = EvaluationLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => EvaluationRoute,
+} as any)
+const EvaluationProjectRoute = EvaluationProjectRouteImport.update({
+  id: '/project',
+  path: '/project',
+  getParentRoute: () => EvaluationRoute,
+} as any)
+const EvaluationResumeRoute = EvaluationResumeRouteImport.update({
+  id: '/resume',
+  path: '/resume',
+  getParentRoute: () => EvaluationRoute,
+} as any)
+const HackathonsIndexRoute = HackathonsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HackathonsRoute,
+} as any)
+const HackathonsCodeRoute = HackathonsCodeRouteImport.update({
+  id: '/$code',
+  path: '/$code',
+  getParentRoute: () => HackathonsRoute,
+} as any)
 const ReportIdRoute = ReportIdRouteImport.update({
   id: '/report/$id',
   path: '/report/$id',
@@ -106,13 +164,37 @@ const ReviewProjectRoute = ReviewProjectRouteImport.update({
   path: '/review/project',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvaluationProjectIdRoute = EvaluationProjectIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => EvaluationProjectRoute,
+} as any)
+const EvaluationResumeIdRoute = EvaluationResumeIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => EvaluationResumeRoute,
+} as any)
+const HackathonsCodeProjectProjectIdRoute =
+  HackathonsCodeProjectProjectIdRouteImport.update({
+    id: '/project/$projectId',
+    path: '/project/$projectId',
+    getParentRoute: () => HackathonsCodeRoute,
+  } as any)
+const HackathonsCodeResumeResumeIdRoute =
+  HackathonsCodeResumeResumeIdRouteImport.update({
+    id: '/resume/$resumeId',
+    path: '/resume/$resumeId',
+    getParentRoute: () => HackathonsCodeRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/evaluation': typeof EvaluationRouteWithChildren
   '/features': typeof FeaturesRoute
+  '/hackathons': typeof HackathonsRouteWithChildren
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -121,15 +203,27 @@ export interface FileRoutesByFullPath {
   '/progress': typeof ProgressRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/evaluation/compare': typeof EvaluationCompareRoute
+  '/evaluation/criteria': typeof EvaluationCriteriaRoute
+  '/evaluation/leaderboard': typeof EvaluationLeaderboardRoute
+  '/evaluation/project': typeof EvaluationProjectRouteWithChildren
+  '/evaluation/resume': typeof EvaluationResumeRouteWithChildren
+  '/hackathons/$code': typeof HackathonsCodeRouteWithChildren
   '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
+  '/hackathons/': typeof HackathonsIndexRoute
+  '/evaluation/project/$id': typeof EvaluationProjectIdRoute
+  '/evaluation/resume/$id': typeof EvaluationResumeIdRoute
+  '/hackathons/$code/project/$projectId': typeof HackathonsCodeProjectProjectIdRoute
+  '/hackathons/$code/resume/$resumeId': typeof HackathonsCodeResumeResumeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/evaluation': typeof EvaluationRouteWithChildren
   '/features': typeof FeaturesRoute
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
@@ -139,9 +233,20 @@ export interface FileRoutesByTo {
   '/progress': typeof ProgressRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/evaluation/compare': typeof EvaluationCompareRoute
+  '/evaluation/criteria': typeof EvaluationCriteriaRoute
+  '/evaluation/leaderboard': typeof EvaluationLeaderboardRoute
+  '/evaluation/project': typeof EvaluationProjectRouteWithChildren
+  '/evaluation/resume': typeof EvaluationResumeRouteWithChildren
+  '/hackathons/$code': typeof HackathonsCodeRouteWithChildren
   '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
+  '/hackathons': typeof HackathonsIndexRoute
+  '/evaluation/project/$id': typeof EvaluationProjectIdRoute
+  '/evaluation/resume/$id': typeof EvaluationResumeIdRoute
+  '/hackathons/$code/project/$projectId': typeof HackathonsCodeProjectProjectIdRoute
+  '/hackathons/$code/resume/$resumeId': typeof HackathonsCodeResumeResumeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,7 +254,9 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
+  '/evaluation': typeof EvaluationRouteWithChildren
   '/features': typeof FeaturesRoute
+  '/hackathons': typeof HackathonsRouteWithChildren
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -158,9 +265,20 @@ export interface FileRoutesById {
   '/progress': typeof ProgressRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/evaluation/compare': typeof EvaluationCompareRoute
+  '/evaluation/criteria': typeof EvaluationCriteriaRoute
+  '/evaluation/leaderboard': typeof EvaluationLeaderboardRoute
+  '/evaluation/project': typeof EvaluationProjectRouteWithChildren
+  '/evaluation/resume': typeof EvaluationResumeRouteWithChildren
+  '/hackathons/$code': typeof HackathonsCodeRouteWithChildren
   '/report/$id': typeof ReportIdRoute
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
+  '/hackathons/': typeof HackathonsIndexRoute
+  '/evaluation/project/$id': typeof EvaluationProjectIdRoute
+  '/evaluation/resume/$id': typeof EvaluationResumeIdRoute
+  '/hackathons/$code/project/$projectId': typeof HackathonsCodeProjectProjectIdRoute
+  '/hackathons/$code/resume/$resumeId': typeof HackathonsCodeResumeResumeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -169,7 +287,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/contact'
     | '/dashboard'
+    | '/evaluation'
     | '/features'
+    | '/hackathons'
     | '/how-it-works'
     | '/login'
     | '/onboarding'
@@ -178,15 +298,27 @@ export interface FileRouteTypes {
     | '/progress'
     | '/reports'
     | '/terms'
+    | '/evaluation/compare'
+    | '/evaluation/criteria'
+    | '/evaluation/leaderboard'
+    | '/evaluation/project'
+    | '/evaluation/resume'
+    | '/hackathons/$code'
     | '/report/$id'
     | '/review/developer'
     | '/review/project'
+    | '/hackathons/'
+    | '/evaluation/project/$id'
+    | '/evaluation/resume/$id'
+    | '/hackathons/$code/project/$projectId'
+    | '/hackathons/$code/resume/$resumeId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/contact'
     | '/dashboard'
+    | '/evaluation'
     | '/features'
     | '/how-it-works'
     | '/login'
@@ -196,16 +328,29 @@ export interface FileRouteTypes {
     | '/progress'
     | '/reports'
     | '/terms'
+    | '/evaluation/compare'
+    | '/evaluation/criteria'
+    | '/evaluation/leaderboard'
+    | '/evaluation/project'
+    | '/evaluation/resume'
+    | '/hackathons/$code'
     | '/report/$id'
     | '/review/developer'
     | '/review/project'
+    | '/hackathons'
+    | '/evaluation/project/$id'
+    | '/evaluation/resume/$id'
+    | '/hackathons/$code/project/$projectId'
+    | '/hackathons/$code/resume/$resumeId'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/contact'
     | '/dashboard'
+    | '/evaluation'
     | '/features'
+    | '/hackathons'
     | '/how-it-works'
     | '/login'
     | '/onboarding'
@@ -214,9 +359,20 @@ export interface FileRouteTypes {
     | '/progress'
     | '/reports'
     | '/terms'
+    | '/evaluation/compare'
+    | '/evaluation/criteria'
+    | '/evaluation/leaderboard'
+    | '/evaluation/project'
+    | '/evaluation/resume'
+    | '/hackathons/$code'
     | '/report/$id'
     | '/review/developer'
     | '/review/project'
+    | '/hackathons/'
+    | '/evaluation/project/$id'
+    | '/evaluation/resume/$id'
+    | '/hackathons/$code/project/$projectId'
+    | '/hackathons/$code/resume/$resumeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -224,7 +380,9 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
+  EvaluationRoute: typeof EvaluationRouteWithChildren
   FeaturesRoute: typeof FeaturesRoute
+  HackathonsRoute: typeof HackathonsRouteWithChildren
   HowItWorksRoute: typeof HowItWorksRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -268,11 +426,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evaluation': {
+      id: '/evaluation'
+      path: '/evaluation'
+      fullPath: '/evaluation'
+      preLoaderRoute: typeof EvaluationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/features': {
       id: '/features'
       path: '/features'
       fullPath: '/features'
       preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hackathons': {
+      id: '/hackathons'
+      path: '/hackathons'
+      fullPath: '/hackathons'
+      preLoaderRoute: typeof HackathonsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/how-it-works': {
@@ -331,6 +503,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evaluation/compare': {
+      id: '/evaluation/compare'
+      path: '/compare'
+      fullPath: '/evaluation/compare'
+      preLoaderRoute: typeof EvaluationCompareRouteImport
+      parentRoute: typeof EvaluationRoute
+    }
+    '/evaluation/criteria': {
+      id: '/evaluation/criteria'
+      path: '/criteria'
+      fullPath: '/evaluation/criteria'
+      preLoaderRoute: typeof EvaluationCriteriaRouteImport
+      parentRoute: typeof EvaluationRoute
+    }
+    '/evaluation/leaderboard': {
+      id: '/evaluation/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/evaluation/leaderboard'
+      preLoaderRoute: typeof EvaluationLeaderboardRouteImport
+      parentRoute: typeof EvaluationRoute
+    }
+    '/evaluation/project': {
+      id: '/evaluation/project'
+      path: '/project'
+      fullPath: '/evaluation/project'
+      preLoaderRoute: typeof EvaluationProjectRouteImport
+      parentRoute: typeof EvaluationRoute
+    }
+    '/evaluation/resume': {
+      id: '/evaluation/resume'
+      path: '/resume'
+      fullPath: '/evaluation/resume'
+      preLoaderRoute: typeof EvaluationResumeRouteImport
+      parentRoute: typeof EvaluationRoute
+    }
+    '/hackathons/': {
+      id: '/hackathons/'
+      path: '/'
+      fullPath: '/hackathons/'
+      preLoaderRoute: typeof HackathonsIndexRouteImport
+      parentRoute: typeof HackathonsRoute
+    }
+    '/hackathons/$code': {
+      id: '/hackathons/$code'
+      path: '/$code'
+      fullPath: '/hackathons/$code'
+      preLoaderRoute: typeof HackathonsCodeRouteImport
+      parentRoute: typeof HackathonsRoute
+    }
     '/report/$id': {
       id: '/report/$id'
       path: '/report/$id'
@@ -352,15 +573,115 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewProjectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evaluation/project/$id': {
+      id: '/evaluation/project/$id'
+      path: '/$id'
+      fullPath: '/evaluation/project/$id'
+      preLoaderRoute: typeof EvaluationProjectIdRouteImport
+      parentRoute: typeof EvaluationProjectRoute
+    }
+    '/evaluation/resume/$id': {
+      id: '/evaluation/resume/$id'
+      path: '/$id'
+      fullPath: '/evaluation/resume/$id'
+      preLoaderRoute: typeof EvaluationResumeIdRouteImport
+      parentRoute: typeof EvaluationResumeRoute
+    }
+    '/hackathons/$code/project/$projectId': {
+      id: '/hackathons/$code/project/$projectId'
+      path: '/project/$projectId'
+      fullPath: '/hackathons/$code/project/$projectId'
+      preLoaderRoute: typeof HackathonsCodeProjectProjectIdRouteImport
+      parentRoute: typeof HackathonsCodeRoute
+    }
+    '/hackathons/$code/resume/$resumeId': {
+      id: '/hackathons/$code/resume/$resumeId'
+      path: '/resume/$resumeId'
+      fullPath: '/hackathons/$code/resume/$resumeId'
+      preLoaderRoute: typeof HackathonsCodeResumeResumeIdRouteImport
+      parentRoute: typeof HackathonsCodeRoute
+    }
   }
 }
+
+interface EvaluationProjectRouteChildren {
+  EvaluationProjectIdRoute: typeof EvaluationProjectIdRoute
+}
+
+const EvaluationProjectRouteChildren: EvaluationProjectRouteChildren = {
+  EvaluationProjectIdRoute: EvaluationProjectIdRoute,
+}
+
+const EvaluationProjectRouteWithChildren =
+  EvaluationProjectRoute._addFileChildren(EvaluationProjectRouteChildren)
+
+interface EvaluationResumeRouteChildren {
+  EvaluationResumeIdRoute: typeof EvaluationResumeIdRoute
+}
+
+const EvaluationResumeRouteChildren: EvaluationResumeRouteChildren = {
+  EvaluationResumeIdRoute: EvaluationResumeIdRoute,
+}
+
+const EvaluationResumeRouteWithChildren =
+  EvaluationResumeRoute._addFileChildren(EvaluationResumeRouteChildren)
+
+interface EvaluationRouteChildren {
+  EvaluationCompareRoute: typeof EvaluationCompareRoute
+  EvaluationCriteriaRoute: typeof EvaluationCriteriaRoute
+  EvaluationLeaderboardRoute: typeof EvaluationLeaderboardRoute
+  EvaluationProjectRoute: typeof EvaluationProjectRouteWithChildren
+  EvaluationResumeRoute: typeof EvaluationResumeRouteWithChildren
+}
+
+const EvaluationRouteChildren: EvaluationRouteChildren = {
+  EvaluationCompareRoute: EvaluationCompareRoute,
+  EvaluationCriteriaRoute: EvaluationCriteriaRoute,
+  EvaluationLeaderboardRoute: EvaluationLeaderboardRoute,
+  EvaluationProjectRoute: EvaluationProjectRouteWithChildren,
+  EvaluationResumeRoute: EvaluationResumeRouteWithChildren,
+}
+
+const EvaluationRouteWithChildren = EvaluationRoute._addFileChildren(
+  EvaluationRouteChildren,
+)
+
+interface HackathonsCodeRouteChildren {
+  HackathonsCodeProjectProjectIdRoute: typeof HackathonsCodeProjectProjectIdRoute
+  HackathonsCodeResumeResumeIdRoute: typeof HackathonsCodeResumeResumeIdRoute
+}
+
+const HackathonsCodeRouteChildren: HackathonsCodeRouteChildren = {
+  HackathonsCodeProjectProjectIdRoute: HackathonsCodeProjectProjectIdRoute,
+  HackathonsCodeResumeResumeIdRoute: HackathonsCodeResumeResumeIdRoute,
+}
+
+const HackathonsCodeRouteWithChildren = HackathonsCodeRoute._addFileChildren(
+  HackathonsCodeRouteChildren,
+)
+
+interface HackathonsRouteChildren {
+  HackathonsCodeRoute: typeof HackathonsCodeRouteWithChildren
+  HackathonsIndexRoute: typeof HackathonsIndexRoute
+}
+
+const HackathonsRouteChildren: HackathonsRouteChildren = {
+  HackathonsCodeRoute: HackathonsCodeRouteWithChildren,
+  HackathonsIndexRoute: HackathonsIndexRoute,
+}
+
+const HackathonsRouteWithChildren = HackathonsRoute._addFileChildren(
+  HackathonsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
+  EvaluationRoute: EvaluationRouteWithChildren,
   FeaturesRoute: FeaturesRoute,
+  HackathonsRoute: HackathonsRouteWithChildren,
   HowItWorksRoute: HowItWorksRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,

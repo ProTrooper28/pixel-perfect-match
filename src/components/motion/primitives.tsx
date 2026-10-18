@@ -10,6 +10,7 @@ import { animate, motion, useReducedMotion } from "framer-motion";
 import { Check, Loader2, Minus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useNavigationDirection } from "@/components/motion/navigation";
 
 /**
  * Shared motion language for BuildLens.
@@ -25,14 +26,19 @@ export const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];
 /** True in the test runner, where entrance animations should not delay assertions. */
 const isTestEnv = import.meta.env.MODE === "test";
 
-/** Page-level entrance: fade + a short lift. */
+/**
+ * Page-level entrance, in the shared directional language: content slides in
+ * from the side it is arriving from (forward = right, back = left) and settles.
+ * Enter-only, so it adds nothing to the cost of a navigation.
+ */
 export function AnimatedPage({ children, className }: { children: ReactNode; className?: string }) {
   const reduce = useReducedMotion();
+  const direction = useNavigationDirection();
   return (
     <motion.div
-      initial={reduce ? false : { opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: EASE_OUT }}
+      initial={reduce ? false : { opacity: 0, x: direction * 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.34, ease: EASE_OUT }}
       className={className}
     >
       {children}

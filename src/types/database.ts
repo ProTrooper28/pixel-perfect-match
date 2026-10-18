@@ -13,6 +13,12 @@ export type ReportType = "Project" | "Developer";
 export type ReportStatus = "Completed" | "In Progress" | "Failed";
 export type ProjectStatus = "draft" | "in_review" | "completed";
 
+/** Judging additions — see supabase/migrations/0003_judging.sql. */
+export type EvaluationCategoryRow = "resume" | "project";
+export type EvaluationRecordStatus = "in_progress" | "evaluated" | "reviewed";
+export type EvaluationRecommendationRow = "strong_yes" | "yes" | "maybe" | "no" | "strong_no";
+export type NoteVisibility = "private" | "feedback";
+
 export interface Database {
   public: {
     Tables: {
@@ -147,14 +153,164 @@ export interface Database {
           },
         ];
       };
+      evaluation_criteria_sets: {
+        Row: {
+          id: string;
+          owner_id: string | null;
+          category: EvaluationCategoryRow;
+          max_score: number;
+          criteria: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id?: string | null;
+          category: EvaluationCategoryRow;
+          max_score?: number;
+          criteria?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string | null;
+          category?: EvaluationCategoryRow;
+          max_score?: number;
+          criteria?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "evaluation_criteria_sets_owner_id_fkey";
+            columns: ["owner_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      judge_evaluations: {
+        Row: {
+          id: string;
+          submission_id: string;
+          submission_category: EvaluationCategoryRow;
+          judge_id: string;
+          judge_name: string | null;
+          status: EvaluationRecordStatus;
+          recommendation: EvaluationRecommendationRow | null;
+          scores: Json;
+          criteria_snapshot: Json | null;
+          ai_score: number | null;
+          ai_criteria_scores: Json | null;
+          ai_reasoning: string | null;
+          ai_confidence: number | null;
+          ai_model: string | null;
+          ai_evaluated_at: string | null;
+          submitted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          submission_category: EvaluationCategoryRow;
+          judge_id: string;
+          judge_name?: string | null;
+          status?: EvaluationRecordStatus;
+          recommendation?: EvaluationRecommendationRow | null;
+          scores?: Json;
+          criteria_snapshot?: Json | null;
+          ai_score?: number | null;
+          ai_criteria_scores?: Json | null;
+          ai_reasoning?: string | null;
+          ai_confidence?: number | null;
+          ai_model?: string | null;
+          ai_evaluated_at?: string | null;
+          submitted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          submission_category?: EvaluationCategoryRow;
+          judge_id?: string;
+          judge_name?: string | null;
+          status?: EvaluationRecordStatus;
+          recommendation?: EvaluationRecommendationRow | null;
+          scores?: Json;
+          criteria_snapshot?: Json | null;
+          ai_score?: number | null;
+          ai_criteria_scores?: Json | null;
+          ai_reasoning?: string | null;
+          ai_confidence?: number | null;
+          ai_model?: string | null;
+          ai_evaluated_at?: string | null;
+          submitted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "judge_evaluations_judge_id_fkey";
+            columns: ["judge_id"];
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      judge_evaluation_notes: {
+        Row: {
+          evaluation_id: string;
+          judge_id: string;
+          body: string;
+          visibility: NoteVisibility;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          evaluation_id: string;
+          judge_id: string;
+          body?: string;
+          visibility?: NoteVisibility;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          evaluation_id?: string;
+          judge_id?: string;
+          body?: string;
+          visibility?: NoteVisibility;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "judge_evaluation_notes_evaluation_id_fkey";
+            columns: ["evaluation_id"];
+            referencedRelation: "judge_evaluations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      is_buildlens_judge: {
+        Args: { uid?: string };
+        Returns: boolean;
+      };
+    };
     Enums: {
       AccountType: AccountType;
       ReportType: ReportType;
       ReportStatus: ReportStatus;
       ProjectStatus: ProjectStatus;
+      evaluation_category: EvaluationCategoryRow;
+      evaluation_record_status: EvaluationRecordStatus;
+      evaluation_recommendation: EvaluationRecommendationRow;
+      note_visibility: NoteVisibility;
     };
     CompositeTypes: Record<string, never>;
   };
@@ -172,6 +328,20 @@ export type ProjectUpdate = Database["public"]["Tables"]["projects"]["Update"];
 export type Report = Database["public"]["Tables"]["reports"]["Row"];
 export type ReportInsert = Database["public"]["Tables"]["reports"]["Insert"];
 export type ReportUpdate = Database["public"]["Tables"]["reports"]["Update"];
+
+export type EvaluationCriteriaSet = Database["public"]["Tables"]["evaluation_criteria_sets"]["Row"];
+export type EvaluationCriteriaSetInsert =
+  Database["public"]["Tables"]["evaluation_criteria_sets"]["Insert"];
+export type EvaluationCriteriaSetUpdate =
+  Database["public"]["Tables"]["evaluation_criteria_sets"]["Update"];
+
+export type JudgeEvaluationRow = Database["public"]["Tables"]["judge_evaluations"]["Row"];
+export type JudgeEvaluationInsert = Database["public"]["Tables"]["judge_evaluations"]["Insert"];
+export type JudgeEvaluationUpdate = Database["public"]["Tables"]["judge_evaluations"]["Update"];
+
+export type JudgeEvaluationNote = Database["public"]["Tables"]["judge_evaluation_notes"]["Row"];
+export type JudgeEvaluationNoteInsert =
+  Database["public"]["Tables"]["judge_evaluation_notes"]["Insert"];
 
 /** Storage buckets provisioned in the init migration. */
 export const STORAGE_BUCKETS = {

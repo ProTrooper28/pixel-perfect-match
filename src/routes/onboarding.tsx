@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import "@/components/onboarding/onboarding.css";
 
+import { EASE_OUT } from "@/components/motion/primitives";
 import { Stepper, type StepperStep } from "@/components/onboarding/Stepper";
 import {
   AccountStep,
@@ -326,8 +327,16 @@ function Onboarding() {
   const showPreview = step === 0 || step === 1;
   const cardProps = cardPropsFromState(state, focus);
 
-  const slideIn = reduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 24 };
-  const slideOut = reduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * -18 };
+  // One motion language for the whole flow: the step being left slips back and
+  // dims, the next one arrives from the direction of travel. Forward and back
+  // read as opposites, and the card rides along with its step.
+  const stepMotion = reduceMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1, x: 0, scale: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0, x: direction * 28, scale: 0.99 },
+        animate: { opacity: 1, x: 0, scale: 1 },
+        exit: { opacity: 0, x: direction * -22, scale: 0.995 },
+      };
 
   const renderStep = () => {
     switch (STEPS[step]?.id) {
@@ -391,10 +400,10 @@ function Onboarding() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.section
               key={STEPS[step]?.id}
-              initial={slideIn}
-              animate={{ opacity: 1, x: 0 }}
-              exit={slideOut}
-              transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+              initial={stepMotion.initial}
+              animate={stepMotion.animate}
+              exit={stepMotion.exit}
+              transition={{ duration: reduceMotion ? 0 : 0.32, ease: EASE_OUT }}
               aria-live="polite"
             >
               {renderStep()}

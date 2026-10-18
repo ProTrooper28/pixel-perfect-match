@@ -2,12 +2,23 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FolderGit2, History, LayoutDashboard, UserSearch, LogOut, X, Menu } from "lucide-react";
+import {
+  Archive,
+  FolderGit2,
+  Gavel,
+  History,
+  LayoutDashboard,
+  UserSearch,
+  LogOut,
+  X,
+  Menu,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
+import { AppearanceControl } from "@/components/appearance/AppearanceControl";
 import { Breadcrumbs, type Crumb } from "./Breadcrumbs";
 import { notify } from "@/lib/toast-messages";
 import { cn } from "@/lib/utils";
@@ -18,17 +29,23 @@ import { AnimatedPage, EASE_OUT } from "@/components/motion/primitives";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/hackathons", label: "Archives", icon: Archive },
   { to: "/review/project", label: "Project", icon: FolderGit2 },
   { to: "/review/developer", label: "Developer", icon: UserSearch },
+  { to: "/evaluation", label: "Evaluation", icon: Gavel },
   { to: "/reports", label: "Reports", icon: History },
 ] as const;
 
 /** Which nav item owns the current path (report detail belongs to Reports). */
 function isLinkActive(pathname: string, to: string): boolean {
+  if (to === "/hackathons")
+    return pathname === "/hackathons" || pathname.startsWith("/hackathons/");
   if (to === "/reports") return pathname === "/reports" || pathname.startsWith("/report/");
   if (to === "/review/project") {
     return pathname.startsWith("/review/project") || pathname.startsWith("/progress");
   }
+  if (to === "/evaluation")
+    return pathname === "/evaluation" || pathname.startsWith("/evaluation/");
   return pathname === to;
 }
 
@@ -41,9 +58,9 @@ export function AppLayout({
 }: {
   children: ReactNode;
   title: string;
-  subtitle?: string;
-  actions?: ReactNode;
-  crumbs?: Crumb[];
+  subtitle?: string | undefined;
+  actions?: ReactNode | undefined;
+  crumbs?: Crumb[] | undefined;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { signOut } = useAuth();
@@ -81,13 +98,13 @@ export function AppLayout({
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-50 border-b border-border/80 bg-background/75 backdrop-blur-xl print:hidden">
+        <header className="sticky top-0 z-50 border-b border-border/80 bg-background/80 backdrop-blur-md print:hidden">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
             <div className="flex items-center gap-4">
               <Logo to="/dashboard" />
-              <Separator orientation="vertical" className="hidden h-5 md:block" decorative />
+              <Separator orientation="vertical" className="hidden h-5 lg:block" decorative />
               <nav
-                className="hidden items-center gap-1 md:flex"
+                className="hidden items-center gap-0.5 lg:flex"
                 aria-label="App"
                 onPointerEnter={prefetchWorkspace}
                 onFocus={prefetchWorkspace}
@@ -99,7 +116,7 @@ export function AppLayout({
                       key={l.to}
                       to={l.to}
                       className={cn(
-                        "group relative inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                        "group relative inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 xl:px-3",
                         active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -124,6 +141,7 @@ export function AppLayout({
               </nav>
             </div>
             <div className="flex items-center gap-1">
+              <AppearanceControl />
               <ThemeToggle />
               <Button
                 variant="ghost"
@@ -137,7 +155,7 @@ export function AppLayout({
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className="lg:hidden"
                 aria-expanded={menuOpen}
                 aria-controls="app-mobile-menu"
                 aria-label="Toggle navigation menu"
@@ -155,7 +173,7 @@ export function AppLayout({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.22, ease: EASE_OUT }}
-                className="overflow-hidden border-t border-border/80 md:hidden"
+                className="overflow-hidden border-t border-border/80 lg:hidden"
                 aria-label="App mobile"
               >
                 <div

@@ -1,0 +1,556 @@
+/*
+ * Appearance system — atmospheric backgrounds.
+ *
+ * One fixed, pointer-transparent layer sits behind the whole application
+ * (`z-index: -1`), so it is visible wherever the page itself is transparent and
+ * automatically hidden behind opaque surfaces (the cinematic landing/login
+ * heroes). Everything is CSS: gradients, SVG turbulence textures and a soft
+ * vignette — no image assets, no runtime work while navigating.
+ *
+ * Composition, per preset:
+ *   gradient canvas → material texture → mineral veining → light sheen
+ *   → protective scrim → vignette → grain → optional ambient bubbles
+ *
+ * The scrim is what keeps the interface in charge: each preset declares its own
+ * opacity for dark and light themes (35–50% black for deep backgrounds, 45–60%
+ * for medium ones, 55–70% for bright red/pink ones; light mode uses a pale
+ * wash instead).
+ *
+ * Adding a preset = one entry in `presets.ts` + one palette block below.
+ */
+
+:root {
+  /* Textures are static SVG rasters: decoded once, reused by every preset. */
+  --tex-fine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)'/%3E%3C/svg%3E");
+  --tex-cloud: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006' numOctaves='4' seed='11' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23c)'/%3E%3C/svg%3E");
+  --tex-veins: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.003 0.012' numOctaves='5' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.7 0 0 0 -0.82'/%3E%3C/filter%3E%3Crect width='700' height='700' filter='url(%23v)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   Palettes
+   ============================================================ */
+
+/* Minimal — no texture at all: the interface leads, the canvas is quiet. */
+.appearance[data-bg="minimal"],
+html[data-bg="minimal"],
+.appearance-swatch[data-bg="minimal"] {
+  --bg-angle: 160deg;
+  --bg-1: #111418;
+  --bg-2: #0d1013;
+  --bg-3: #090b0e;
+  --glow-a: transparent;
+  --glow-b: transparent;
+  --bg-1-l: #fbfaf7;
+  --bg-2-l: #f8f7f4;
+  --bg-3-l: #f4f2ee;
+  --glow-a-l: rgba(120, 132, 150, 0.1);
+  --texture: none;
+  --texture-opacity: 0;
+  --vein-texture: none;
+  --vein-opacity: 0;
+  --sheen-opacity: 0;
+  --appearance-base-dark: #0d1013;
+  --appearance-base-light: #f8f7f4;
+  --appearance-scrim-dark: 0.32;
+  --appearance-scrim-light: 0.54;
+}
+
+/* Graphite — brushed metal: fine cloud, faint veining, satin sheen. */
+.appearance[data-bg="graphite"],
+html[data-bg="graphite"],
+.appearance-swatch[data-bg="graphite"] {
+  --bg-angle: 145deg;
+  --bg-1: #1c222a;
+  --bg-2: #14181e;
+  --bg-3: #0b0e12;
+  --glow-a: rgba(126, 150, 180, 0.3);
+  --glow-b: rgba(70, 86, 105, 0.26);
+  --bg-1-l: #fafaf8;
+  --bg-2-l: #f3f4f3;
+  --bg-3-l: #ecedec;
+  --glow-a-l: rgba(150, 163, 180, 0.16);
+  --texture: var(--tex-cloud);
+  --texture-size: 130vmax 130vmax;
+  --texture-opacity: 0.34;
+  --vein-texture: var(--tex-veins);
+  --vein-opacity: 0.1;
+  --sheen-opacity: 0.34;
+  --appearance-base-dark: #101317;
+  --appearance-base-light: #f5f5f3;
+  --appearance-scrim-dark: 0.4;
+  --appearance-scrim-light: 0.6;
+}
+
+/* Deep Ember — red-orange atmosphere, protected by a heavy scrim. */
+.appearance[data-bg="ember"],
+html[data-bg="ember"],
+.appearance-swatch[data-bg="ember"] {
+  --bg-angle: 152deg;
+  --bg-1: #4a150a;
+  --bg-2: #2a0c07;
+  --bg-3: #120504;
+  --glow-a: rgba(255, 94, 44, 0.4);
+  --glow-b: rgba(255, 160, 90, 0.16);
+  --bg-1-l: #fdf3ed;
+  --bg-2-l: #fbe8df;
+  --bg-3-l: #fff8f5;
+  --glow-a-l: rgba(255, 140, 90, 0.18);
+  --texture: var(--tex-cloud);
+  --texture-size: 120vmax 120vmax;
+  --texture-opacity: 0.42;
+  --vein-texture: var(--tex-veins);
+  --vein-opacity: 0.2;
+  --sheen-opacity: 0.28;
+  --appearance-base-dark: #1b0703;
+  --appearance-base-light: #fdf4ef;
+  --appearance-scrim-dark: 0.62;
+  --appearance-scrim-light: 0.74;
+}
+
+/* Prismatic — cool blue/violet facets. */
+.appearance[data-bg="prism"],
+html[data-bg="prism"],
+.appearance-swatch[data-bg="prism"] {
+  --bg-angle: 162deg;
+  --bg-1: #221a55;
+  --bg-2: #141038;
+  --bg-3: #08081c;
+  --glow-a: rgba(96, 116, 255, 0.36);
+  --glow-b: rgba(150, 90, 230, 0.24);
+  --bg-1-l: #f5f3fd;
+  --bg-2-l: #edecfa;
+  --bg-3-l: #fafaff;
+  --glow-a-l: rgba(140, 140, 255, 0.18);
+  --texture: var(--tex-cloud);
+  --texture-size: 125vmax 125vmax;
+  --texture-opacity: 0.32;
+  --vein-texture: var(--tex-veins);
+  --vein-opacity: 0.22;
+  --sheen-opacity: 0.38;
+  --appearance-base-dark: #0d0a26;
+  --appearance-base-light: #f2f1fb;
+  --appearance-scrim-dark: 0.55;
+  --appearance-scrim-light: 0.7;
+}
+
+/* Celestial — deep blue with a faint nebula. */
+.appearance[data-bg="celestial"],
+html[data-bg="celestial"],
+.appearance-swatch[data-bg="celestial"] {
+  --bg-angle: 200deg;
+  --bg-1: #0d2b4d;
+  --bg-2: #081a30;
+  --bg-3: #030a15;
+  --glow-a: rgba(56, 150, 230, 0.3);
+  --glow-b: rgba(20, 80, 160, 0.32);
+  --bg-1-l: #eef4fb;
+  --bg-2-l: #e4edf7;
+  --bg-3-l: #f7fafd;
+  --glow-a-l: rgba(90, 160, 220, 0.16);
+  --texture: var(--tex-cloud);
+  --texture-size: 140vmax 140vmax;
+  --texture-opacity: 0.46;
+  --vein-texture: var(--tex-veins);
+  --vein-opacity: 0.12;
+  --sheen-opacity: 0.26;
+  --appearance-base-dark: #061324;
+  --appearance-base-light: #eef3f9;
+  --appearance-scrim-dark: 0.46;
+  --appearance-scrim-light: 0.66;
+}
+
+/* Magenta Haze — restrained neon: bright, so the scrim is the heaviest. */
+.appearance[data-bg="neon"],
+html[data-bg="neon"],
+.appearance-swatch[data-bg="neon"] {
+  --bg-angle: 158deg;
+  --bg-1: #4a0f33;
+  --bg-2: #2a0a22;
+  --bg-3: #14051a;
+  --glow-a: rgba(255, 60, 140, 0.34);
+  --glow-b: rgba(160, 60, 220, 0.22);
+  --bg-1-l: #fdf2f7;
+  --bg-2-l: #fae6f0;
+  --bg-3-l: #fff8fb;
+  --glow-a-l: rgba(255, 120, 180, 0.16);
+  --texture: var(--tex-cloud);
+  --texture-size: 120vmax 120vmax;
+  --texture-opacity: 0.38;
+  --vein-texture: var(--tex-veins);
+  --vein-opacity: 0.18;
+  --sheen-opacity: 0.28;
+  --appearance-base-dark: #1a0616;
+  --appearance-base-light: #fdf2f7;
+  --appearance-scrim-dark: 0.68;
+  --appearance-scrim-light: 0.76;
+}
+
+/* Indigo Marble — dark blue stone with pale mineral veining. */
+.appearance[data-bg="marble"],
+html[data-bg="marble"],
+.appearance-swatch[data-bg="marble"] {
+  --bg-angle: 168deg;
+  --bg-1: #1b2263;
+  --bg-2: #101440;
+  --bg-3: #06081c;
+  --glow-a: rgba(90, 110, 255, 0.22);
+  --glow-b: rgba(40, 50, 120, 0.28);
+  --bg-1-l: #f1f2fa;
+  --bg-2-l: #e8eaf6;
+  --bg-3-l: #f8f9fd;
+  --glow-a-l: rgba(120, 130, 230, 0.14);
+  --texture: var(--tex-cloud);
+  --texture-size: 130vmax 130vmax;
+  --texture-opacity: 0.2;
+  --vein-texture: var(--tex-veins);
+  --vein-opacity: 0.4;
+  --sheen-opacity: 0.32;
+  --appearance-base-dark: #080b21;
+  --appearance-base-light: #eff0f8;
+  --appearance-scrim-dark: 0.45;
+  --appearance-scrim-light: 0.68;
+}
+
+/* Linen — warm neutral fabric weave; the light-mode companion. */
+.appearance[data-bg="linen"],
+html[data-bg="linen"],
+.appearance-swatch[data-bg="linen"] {
+  --bg-angle: 150deg;
+  --bg-1: #2b2318;
+  --bg-2: #1c1710;
+  --bg-3: #0f0c08;
+  --glow-a: rgba(214, 178, 130, 0.2);
+  --glow-b: rgba(120, 95, 70, 0.18);
+  --bg-1-l: #fdfaf5;
+  --bg-2-l: #f7f1e8;
+  --bg-3-l: #fffdfa;
+  --glow-a-l: rgba(200, 170, 130, 0.18);
+  --texture:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.06) 0 1px, transparent 1px 3px);
+  --texture-size: 3px 3px;
+  --texture-opacity: 0.5;
+  --vein-texture: none;
+  --vein-opacity: 0;
+  --sheen-opacity: 0.46;
+  --appearance-base-dark: #14100b;
+  --appearance-base-light: #faf6f0;
+  --appearance-scrim-dark: 0.5;
+  --appearance-scrim-light: 0.58;
+}
+
+/* Ambient Bubbles — quiet motion, barely-there contrast. */
+.appearance[data-bg="bubbles"],
+html[data-bg="bubbles"],
+.appearance-swatch[data-bg="bubbles"] {
+  --bg-angle: 150deg;
+  --bg-1: #0e2a30;
+  --bg-2: #081b26;
+  --bg-3: #040d15;
+  --glow-a: rgba(90, 200, 220, 0.2);
+  --glow-b: rgba(40, 90, 150, 0.24);
+  --bg-1-l: #f0f6f8;
+  --bg-2-l: #e6f0f3;
+  --bg-3-l: #f8fbfc;
+  --glow-a-l: rgba(90, 180, 210, 0.16);
+  --texture: var(--tex-cloud);
+  --texture-size: 130vmax 130vmax;
+  --texture-opacity: 0.28;
+  --vein-texture: none;
+  --vein-opacity: 0;
+  --sheen-opacity: 0.2;
+  --bubble-tint: #7fd3e6;
+  --appearance-base-dark: #071319;
+  --appearance-base-light: #eef5f7;
+  --appearance-scrim-dark: 0.5;
+  --appearance-scrim-light: 0.64;
+}
+
+/* ============================================================
+   Layer
+   ============================================================ */
+
+/* Behind everything: visible where the page is transparent, never in the way. */
+.appearance {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+  contain: layout paint;
+}
+
+.appearance__bg,
+.appearance__texture,
+.appearance__veins,
+.appearance__sheen,
+.appearance__scrim,
+.appearance__vignette,
+.appearance__grain {
+  position: absolute;
+  inset: 0;
+}
+
+/* Gradient canvas. */
+.bg-paint,
+.bg-swatch {
+  background-image:
+    radial-gradient(88% 72% at 78% 10%, var(--glow-a, transparent) 0%, transparent 58%),
+    radial-gradient(78% 66% at 14% 90%, var(--glow-b, transparent) 0%, transparent 62%),
+    linear-gradient(var(--bg-angle, 158deg), var(--bg-1) 0%, var(--bg-2) 52%, var(--bg-3) 100%);
+}
+
+html:not(.dark) .bg-paint,
+html:not(.dark) .bg-swatch {
+  background-image:
+    radial-gradient(92% 70% at 80% 6%, var(--glow-a-l, transparent) 0%, transparent 62%),
+    linear-gradient(
+      var(--bg-angle, 158deg),
+      var(--bg-1-l) 0%,
+      var(--bg-2-l) 55%,
+      var(--bg-3-l) 100%
+    );
+}
+
+.appearance__bg {
+  background-color: var(--appearance-base);
+}
+
+/* Large-scale material structure: clouds, brushed streaks or woven thread. */
+.appearance__texture {
+  inset: -8%;
+  background-image: var(--texture, none);
+  background-size: var(--texture-size, 130vmax 130vmax);
+  background-repeat: repeat;
+  opacity: var(--texture-opacity, 0);
+  mix-blend-mode: soft-light;
+}
+
+/* Mineral veining — the marble/liquid reading. */
+.appearance__veins {
+  inset: -14%;
+  background-image: var(--vein-texture, none);
+  background-size: 150vmax 150vmax;
+  background-repeat: repeat;
+  opacity: var(--vein-opacity, 0);
+  mix-blend-mode: overlay;
+  mask-image: radial-gradient(
+    120% 110% at 62% 38%,
+    black 0%,
+    rgba(0, 0, 0, 0.35) 62%,
+    transparent 88%
+  );
+}
+
+/* A single soft light band: depth without a pattern. */
+.appearance__sheen {
+  inset: -20%;
+  background-image: linear-gradient(
+    118deg,
+    transparent 22%,
+    color-mix(in oklab, var(--glow-a, #ffffff) 45%, transparent) 46%,
+    transparent 62%
+  );
+  opacity: var(--sheen-opacity, 0);
+  mix-blend-mode: soft-light;
+}
+
+/* The protective scrim: what keeps text and cards ahead of the environment. */
+.appearance__scrim {
+  background-color: var(--appearance-scrim-color);
+  opacity: var(--appearance-scrim);
+}
+
+/* Vignette: pulls the edges down and protects the content column. */
+.appearance__vignette {
+  background-image:
+    radial-gradient(
+      92% 74% at 50% 44%,
+      color-mix(in oklab, var(--appearance-scrim-color) 30%, transparent) 0%,
+      transparent 72%
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--appearance-scrim-color) 40%, transparent) 0%,
+      transparent 26%,
+      transparent 62%,
+      color-mix(in oklab, var(--appearance-scrim-color) 52%, transparent) 100%
+    );
+}
+
+/* Editorial grain: material, not noise. */
+.appearance__grain {
+  background-image: var(--tex-fine);
+  background-size: 180px 180px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+html:not(.dark) .appearance__texture,
+html:not(.dark) .appearance__veins {
+  opacity: calc(var(--texture-opacity, 0) * 0.5);
+}
+
+html:not(.dark) .appearance__veins {
+  opacity: calc(var(--vein-opacity, 0) * 0.5);
+}
+
+html:not(.dark) .appearance__grain {
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+}
+
+html:not(.dark) .appearance__sheen {
+  opacity: calc(var(--sheen-opacity, 0) * 0.6);
+}
+
+/* ============================================================
+   Ambient bubbles
+   ============================================================ */
+
+.appearance__bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  contain: paint;
+}
+
+.appearance__bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 34% 28%,
+    rgba(255, 255, 255, 0.5) 0%,
+    color-mix(in oklab, var(--bubble-tint, #7fd3e6) 32%, transparent) 58%,
+    transparent 74%
+  );
+  filter: blur(10px);
+  opacity: var(--bubble-opacity, 0.08);
+  will-change: transform;
+  animation: bubble-drift var(--bubble-duration, 80s) ease-in-out var(--bubble-delay, 0s) infinite;
+}
+
+@keyframes bubble-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(var(--bubble-drift-x, 3%), var(--bubble-drift-y, -5%), 0)
+      scale(var(--bubble-scale, 1.08));
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* ============================================================
+   Preview artwork (picker thumbnails + carousel)
+   ============================================================ */
+
+/* The same palette stack, re-scaled for a small box. The full-screen layer
+   sizes its textures in viewport units, which would render one flat field inside
+   a 60–200px card — previews use pixels instead. */
+.appearance.appearance--preview {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+  pointer-events: none;
+  contain: paint;
+  --texture-size: 120px 120px;
+}
+
+.appearance--preview .appearance__texture {
+  inset: -12%;
+}
+
+.appearance--preview .appearance__veins {
+  inset: -20%;
+  background-size: 260px 260px;
+}
+
+.appearance--preview .appearance__sheen {
+  inset: -25%;
+}
+
+/* A preview reads as artwork, not as the protected space behind the UI: the
+   scrim eases back so the environment stays legible in a thumbnail or card. */
+.appearance--preview .appearance__scrim {
+  opacity: calc(var(--appearance-scrim, 0.45) * 0.6);
+}
+
+.appearance--preview .appearance__grain {
+  background-size: 90px 90px;
+}
+
+/* ============================================================
+   Picker thumbnails
+   ============================================================ */
+
+/* The box only: the artwork inside is the preview stack above. */
+.appearance-swatch__preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 2.5rem;
+  overflow: hidden;
+  border-radius: calc(var(--radius) - 4px);
+  border: 1px solid oklch(1 0 0 / 0.09);
+  background-color: var(--bg-3);
+}
+
+html:not(.dark) .appearance-swatch__preview {
+  background-color: var(--bg-3-l);
+  border-color: oklch(0 0 0 / 0.09);
+}
+
+.appearance-swatch__check {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.9);
+  color: oklch(0.2 0 0);
+  box-shadow: 0 9px 12px -8px oklch(0 0 0 / 0.6);
+}
+
+/* ============================================================
+   Separation for busy backgrounds
+   ============================================================ */
+
+/* The identity card must always outrank the environment. On a loud preset it
+   gains shadow and surface contrast instead of glow — a single list, so it can
+   never drift from the palette blocks above. */
+html:is([data-bg="ember"], [data-bg="prism"], [data-bg="neon"], [data-bg="marble"]) .idcard__front,
+html:is([data-bg="ember"], [data-bg="prism"], [data-bg="neon"], [data-bg="marble"]) .idcard__back {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 36px 64px -22px rgba(2, 6, 10, 0.94);
+}
+
+html:is([data-bg="ember"], [data-bg="prism"], [data-bg="neon"], [data-bg="marble"]) .ob-card-wrap {
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: 0 32px 64px -34px rgba(0, 0, 0, 0.8);
+}
+
+/* ============================================================
+   Print & accessibility
+   ============================================================ */
+
+@media print {
+  .appearance {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Static atmosphere only: no drifting bubbles, no texture motion. */
+  .appearance__bubbles {
+    display: none;
+  }
+}

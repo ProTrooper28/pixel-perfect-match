@@ -43,56 +43,65 @@
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.985 0.002 260);
-  --foreground: oklch(0.18 0.01 265);
+  /* Light theme: warm neutral canvas, white surfaces, charcoal type. */
+  --background: oklch(0.973 0.004 85);
+  --foreground: oklch(0.21 0.006 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 265);
+  --card-foreground: oklch(0.21 0.006 265);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.01 265);
+  --popover-foreground: oklch(0.21 0.006 265);
   --primary: oklch(0.623 0.188 259.8);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.955 0.004 260);
-  --secondary-foreground: oklch(0.2 0.01 265);
-  --muted: oklch(0.955 0.004 260);
-  --muted-foreground: oklch(0.5 0.015 260);
-  --accent: oklch(0.94 0.006 260);
-  --accent-foreground: oklch(0.2 0.01 265);
+  --secondary: oklch(0.952 0.005 85);
+  --secondary-foreground: oklch(0.22 0.006 265);
+  --muted: oklch(0.952 0.005 85);
+  --muted-foreground: oklch(0.505 0.011 265);
+  --accent: oklch(0.936 0.006 85);
+  --accent-foreground: oklch(0.22 0.006 265);
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
   --success: oklch(0.65 0.17 152);
   --warning: oklch(0.75 0.16 75);
-  --border: oklch(0.91 0.006 260);
-  --input: oklch(0.91 0.006 260);
+  --border: oklch(0.904 0.006 85);
+  --input: oklch(0.904 0.006 85);
   --ring: oklch(0.623 0.188 259.8);
   --glow: 0 8px 30px -8px color-mix(in oklab, var(--primary) 60%, transparent);
   --glow-soft: 0 16px 40px -26px color-mix(in oklab, var(--primary) 55%, transparent);
   --lens-shadow: oklch(0.2 0.01 265 / 0.06);
   --surface: oklch(1 0 0);
-  --surface-hover: oklch(0.975 0.004 260);
-  --card-shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px -12px oklch(0 0 0 / 0.12);
+  --surface-hover: oklch(0.972 0.005 85);
+  --card-shadow: 0 1px 2px oklch(0.2 0.01 265 / 0.06), 0 10px 28px -14px oklch(0.2 0.01 265 / 0.16);
+  /* Appearance layer: pale wash + a matching canvas tint (see appearance.css). */
+  --appearance-base: var(--appearance-base-light, var(--background));
+  --appearance-scrim-color: oklch(0.98 0.003 85);
+  --appearance-scrim: var(--appearance-scrim-light, 0.62);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.8);
+  /* Dark theme: deep charcoal with depth — never pure black, never flat. */
+  --background: oklch(0.152 0.005 265);
   --foreground: oklch(0.97 0.003 260);
-  --card: oklch(0.178 0.004 285.8);
+  --card: oklch(0.192 0.005 265);
   --card-foreground: oklch(0.97 0.003 260);
-  --popover: oklch(0.178 0.004 285.8);
+  --popover: oklch(0.192 0.005 265);
   --popover-foreground: oklch(0.97 0.003 260);
-  --secondary: oklch(0.23 0.006 285.8);
+  --secondary: oklch(0.238 0.006 265);
   --secondary-foreground: oklch(0.97 0.003 260);
-  --muted: oklch(0.21 0.005 285.8);
-  --muted-foreground: oklch(0.66 0.012 260);
-  --accent: oklch(0.24 0.008 285.8);
+  --muted: oklch(0.225 0.006 265);
+  --muted-foreground: oklch(0.68 0.011 260);
+  --accent: oklch(0.252 0.007 265);
   --accent-foreground: oklch(0.97 0.003 260);
   --destructive: oklch(0.65 0.21 25);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --surface: oklch(0.178 0.004 285.8);
-  --surface-hover: oklch(0.205 0.006 285.8);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --surface: oklch(0.192 0.005 265);
+  --surface-hover: oklch(0.222 0.007 265);
   --glow-soft: 0 18px 44px -28px oklch(0.62 0.19 259.8 / 0.55);
   --lens-shadow: oklch(0 0 0 / 0.32);
-  --card-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 12px 32px -16px oklch(0 0 0 / 0.6);
+  --card-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 14px 34px -18px oklch(0 0 0 / 0.62);
+  --appearance-base: var(--appearance-base-dark, var(--background));
+  --appearance-scrim-color: oklch(0.11 0.008 265);
+  --appearance-scrim: var(--appearance-scrim-dark, 0.45);
 }
 
 @layer base {
@@ -103,28 +112,17 @@
     scroll-behavior: smooth;
   }
   body {
-    background-color: var(--color-background);
+    /* The atmospheric layer paints above this canvas tint (z-index: -1), so the
+       theme colour never disappears behind the background image. */
+    background-color: var(--appearance-base, var(--color-background));
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    /* Only the canvas tint animates on a theme/background change; surfaces swap
+       instantly so text and cards never fade mid-read. */
+    transition: background-color 460ms cubic-bezier(0.22, 1, 0.36, 1);
   }
-}
-
-@utility grid-bg {
-  background-image:
-    linear-gradient(
-      to right,
-      color-mix(in oklab, var(--foreground) 6%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--foreground) 6%, transparent) 1px,
-      transparent 1px
-    );
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at center top, black 30%, transparent 75%);
 }
 
 @utility text-gradient {
@@ -147,76 +145,12 @@
 
 /* ------------------------------------------------------------ ambience */
 
-/* Precision inspection surface: a near-black workspace with a large recessed
-   circular structure, faint concentric depth rings and soft blue-gray light.
-   Pure CSS, fixed, pointer-transparent — never affects layout or contrast. */
+/* The application canvas is deliberately transparent: the ambient background is
+   a single fixed layer behind the whole app
+   (see components/appearance/appearance.css), so no page paints a competing
+   backdrop and navigation has nothing extra to composite. */
 .app-canvas {
   position: relative;
-  background-color: var(--background);
-  background-image:
-    radial-gradient(
-      circle 58vmax at 50% 4%,
-      color-mix(in oklab, var(--surface) 45%, transparent) 0%,
-      transparent 62%
-    ),
-    radial-gradient(
-      circle 78vmax at 50% 4%,
-      transparent 52%,
-      var(--lens-shadow) 62%,
-      transparent 74%
-    ),
-    radial-gradient(
-      120% 70% at 50% -14%,
-      color-mix(in oklab, var(--primary) 6%, transparent),
-      transparent 60%
-    );
-}
-
-.app-canvas::before,
-.app-canvas::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.app-canvas::before {
-  background-image: repeating-radial-gradient(
-    circle at 50% 6%,
-    transparent 0 118px,
-    color-mix(in oklab, var(--primary) 13%, transparent) 118px 119px
-  );
-  opacity: 0.4;
-  mask-image: radial-gradient(circle at 50% 6%, black 0 16%, transparent 64%);
-  animation: lens-breathe 34s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-
-.app-canvas::after {
-  background-image: repeating-radial-gradient(
-    circle at 50% 6%,
-    transparent 0 239px,
-    color-mix(in oklab, var(--foreground) 8%, transparent) 239px 240px
-  );
-  opacity: 0.3;
-  mask-image: radial-gradient(circle at 50% 6%, transparent 0 24%, black 44%, transparent 80%);
-  animation: lens-breathe 46s ease-in-out infinite reverse;
-  will-change: transform, opacity;
-}
-
-/* Barely perceptible: 1–2% scale over ~35s. Disabled by the reduced-motion
-   block at the end of this file. */
-@keyframes lens-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.32;
-  }
-  50% {
-    transform: scale(1.012);
-    opacity: 0.44;
-  }
 }
 
 /* ------------------------------------------------------------- surfaces */

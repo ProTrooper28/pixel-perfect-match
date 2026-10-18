@@ -1,12 +1,26 @@
 import type { ReactNode } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { SiteHeader } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
+import { EASE_OUT } from "@/components/motion/primitives";
+import { useNavigationDirection } from "@/components/motion/navigation";
 
 export function MarketingLayout({ children }: { children: ReactNode }) {
+  const reduce = useReducedMotion();
+  const direction = useNavigationDirection();
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      <main className="flex-1">{children}</main>
+      {/* Header and footer stay put; only the page body carries the direction. */}
+      <motion.main
+        className="flex-1"
+        initial={reduce ? false : { opacity: 0, x: direction * 22 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.34, ease: EASE_OUT }}
+      >
+        {children}
+      </motion.main>
       <SiteFooter />
     </div>
   );
@@ -23,7 +37,6 @@ export function PageHero({
 }) {
   return (
     <section className="relative overflow-hidden border-b border-border">
-      <div className="grid-bg absolute inset-0" aria-hidden />
       <div className="relative mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
         {eyebrow && (
           <p className="mb-3 text-xs font-medium uppercase tracking-widest text-primary">

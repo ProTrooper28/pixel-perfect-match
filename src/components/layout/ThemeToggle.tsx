@@ -1,24 +1,22 @@
-import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAppearance } from "@/components/appearance/AppearanceContext";
 
+/**
+ * One-click dark/light toggle. The state and persistence live in the appearance
+ * provider, so this stays in sync with the Appearance panel and with the
+ * pre-paint script in `__root.tsx`.
+ */
 export function ThemeToggle() {
-  const [dark, setDark] = useState(true);
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
-  const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("buildlens-theme", next ? "dark" : "light");
-  };
+  const { theme, toggleTheme } = useAppearance();
+  const dark = theme === "dark";
+
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={toggle}
-      aria-label="Toggle theme"
+      onClick={toggleTheme}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       className="group text-muted-foreground hover:text-foreground"
     >
       {dark ? (

@@ -4,6 +4,7 @@ import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
+import { AppearanceControl } from "@/components/appearance/AppearanceControl";
 
 const nav = [
   { to: "/", label: "Home" },
@@ -36,6 +37,7 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="hidden items-center gap-2 md:flex">
+          <AppearanceControl />
           <ThemeToggle />
           <Button asChild variant="ghost" size="sm">
             <Link to="/login">Login</Link>
@@ -45,6 +47,7 @@ export function SiteHeader() {
           </Button>
         </div>
         <div className="flex items-center gap-1 md:hidden">
+          <AppearanceControl />
           <ThemeToggle />
           <Button
             variant="ghost"
