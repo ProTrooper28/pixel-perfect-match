@@ -1,8 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import "@/components/marketing/cinematic.css";
-import { IdentityCardForm } from "@/components/ui/identity-card-form";
-import type { CardState } from "@/components/ui/identity-card-form";
 import { notify } from "@/lib/toast-messages";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -42,21 +40,13 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const navigate = useNavigate();
-  const signInRef = useRef<HTMLDivElement>(null);
-  const createCardRef = useRef<HTMLElement>(null);
-  const { signInWithOAuth, signUpWithEmail, continueAsGuest, user, isLoading } = useAuth();
-  const [pending, setPending] = useState<"google" | "github" | "signup" | null>(null);
+  const { signInWithOAuth, continueAsGuest, user, isLoading } = useAuth();
+  const [pending, setPending] = useState<"google" | "github" | null>(null);
 
   // Already signed in (or returning from OAuth) → go straight to the app.
   useEffect(() => {
     if (!isLoading && user) navigate({ to: "/dashboard", replace: true });
   }, [isLoading, user, navigate]);
-
-  const scrollToSignIn = () =>
-    signInRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-
-  const scrollToCreate = () =>
-    createCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
 
   const requireSupabase = () => {
     if (isSupabaseConfigured) return true;
@@ -82,34 +72,6 @@ function Login() {
   const handleGuest = () => {
     continueAsGuest();
     navigate({ to: "/dashboard" });
-  };
-
-  const handleSignUp = async (state: CardState) => {
-    if (pending) return;
-    if (!requireSupabase()) return;
-    setPending("signup");
-    try {
-      const { needsEmailConfirmation } = await signUpWithEmail({
-        email: state.email.trim(),
-        password: state.password,
-        fullName: state.name.trim(),
-        username: state.username.trim() || undefined,
-        organization: state.organization.trim() || undefined,
-      });
-      if (needsEmailConfirmation) {
-        notify.success(
-          "Check your email",
-          "We sent you a confirmation link to finish creating your account.",
-        );
-      } else {
-        notify.success("Account created", "Welcome to BuildLens.");
-        navigate({ to: "/dashboard" });
-      }
-    } catch (error) {
-      notify.error("Sign-up failed", error instanceof Error ? error.message : "Please try again.");
-    } finally {
-      setPending(null);
-    }
   };
 
   return (
@@ -140,7 +102,7 @@ function Login() {
 
       <div className="loginFlow">
         {/* Sign-in options */}
-        <div className="authCard" id="loginCard" ref={signInRef}>
+        <div className="authCard" id="loginCard">
           <span className="chip">[ Technical Evaluation Platform ]</span>
           <h1 className="authTitle">Sign in</h1>
           <p className="authTagline">Evidence-Based Technical Evaluation.</p>
@@ -184,40 +146,25 @@ function Login() {
             style={{ textAlign: "center", marginTop: "clamp(14px, 1.4vw, 22px)" }}
           >
             Don't have an account?{" "}
-            <button
-              type="button"
+            <Link
+              to="/onboarding"
               id="createAccountLink"
-              onClick={scrollToCreate}
               style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                fontFamily: "inherit",
-                fontSize: "inherit",
-                fontWeight: 400,
                 color: "#fff",
-                cursor: "pointer",
+                fontWeight: 400,
                 textDecoration: "underline",
                 textUnderlineOffset: "3px",
                 textDecorationThickness: "1px",
-                transition: "color 0.25s ease",
               }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.62)")
-              }
-              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#fff")}
             >
               Create one
-            </button>
+            </Link>
           </p>
 
           <p className="authHelper">
             Guest Mode lets you explore BuildLens with sample investigations, no account required.
           </p>
         </div>
-
-        {/* Account creation with the animated identity card */}
-        <IdentityCardForm ref={createCardRef} onBack={scrollToSignIn} onSubmit={handleSignUp} />
       </div>
     </div>
   );
