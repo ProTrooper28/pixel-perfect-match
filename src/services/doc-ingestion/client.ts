@@ -112,12 +112,13 @@ interface ClientConfig {
 function getDefaultConfig(): Required<ClientConfig> {
   return {
     baseUrl: (
-      // In TanStack Start server routes, use the process env directly
-      (typeof process !== 'undefined' && process.env.DOC_INGESTION_URL) ||
+      // In TanStack Start server routes, use the process env directly.
+      // Bracket access: this repo sets noPropertyAccessFromIndexSignature.
+      (typeof process !== 'undefined' && process.env['DOC_INGESTION_URL']) ||
       'http://localhost:8001'
     ),
     serviceToken: (
-      (typeof process !== 'undefined' && process.env.DOC_INGESTION_SERVICE_TOKEN) || ''
+      (typeof process !== 'undefined' && process.env['DOC_INGESTION_SERVICE_TOKEN']) || ''
     ),
     timeoutMs: 120_000,
   };
@@ -155,7 +156,10 @@ export async function ingestDocument(
   const blob =
     fileData instanceof Blob
       ? fileData
-      : new Blob([fileData], { type: 'application/octet-stream' });
+      : // Copy into a fresh ArrayBuffer-backed view: BlobPart requires
+        // ArrayBuffer-backed typed arrays, while Buffer/Uint8Array may wrap a
+        // SharedArrayBuffer.
+        new Blob([new Uint8Array(fileData)], { type: 'application/octet-stream' });
   form.append('file', blob, fileName);
   if (options?.submissionId) {
     form.append('submission_id', options.submissionId);

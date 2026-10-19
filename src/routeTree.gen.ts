@@ -26,6 +26,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ApiEvaluationsRouteImport } from './routes/api.evaluations'
 import { Route as EvaluationCompareRouteImport } from './routes/evaluation.compare'
 import { Route as EvaluationCriteriaRouteImport } from './routes/evaluation.criteria'
 import { Route as EvaluationLeaderboardRouteImport } from './routes/evaluation.leaderboard'
@@ -36,6 +37,7 @@ import { Route as HackathonsCodeRouteImport } from './routes/hackathons.$code'
 import { Route as ReportIdRouteImport } from './routes/report.$id'
 import { Route as ReviewDeveloperRouteImport } from './routes/review.developer'
 import { Route as ReviewProjectRouteImport } from './routes/review.project'
+import { Route as ApiEvaluationsIdRouteImport } from './routes/api.evaluations.$id'
 import { Route as EvaluationProjectIdRouteImport } from './routes/evaluation.project.$id'
 import { Route as EvaluationResumeIdRouteImport } from './routes/evaluation.resume.$id'
 import { Route as HackathonsCodeProjectProjectIdRouteImport } from './routes/hackathons.$code.project.$projectId'
@@ -126,6 +128,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiEvaluationsRoute = ApiEvaluationsRouteImport.update({
+  id: '/api/evaluations',
+  path: '/api/evaluations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EvaluationCompareRoute = EvaluationCompareRouteImport.update({
   id: '/compare',
   path: '/compare',
@@ -176,6 +183,11 @@ const ReviewProjectRoute = ReviewProjectRouteImport.update({
   path: '/review/project',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiEvaluationsIdRoute = ApiEvaluationsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiEvaluationsRoute,
+} as any)
 const EvaluationProjectIdRoute = EvaluationProjectIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -217,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/progress': typeof ProgressRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/api/evaluations': typeof ApiEvaluationsRouteWithChildren
   '/evaluation/compare': typeof EvaluationCompareRoute
   '/evaluation/criteria': typeof EvaluationCriteriaRoute
   '/evaluation/leaderboard': typeof EvaluationLeaderboardRoute
@@ -227,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
   '/hackathons/': typeof HackathonsIndexRoute
+  '/api/evaluations/$id': typeof ApiEvaluationsIdRoute
   '/evaluation/project/$id': typeof EvaluationProjectIdRoute
   '/evaluation/resume/$id': typeof EvaluationResumeIdRoute
   '/hackathons/$code/project/$projectId': typeof HackathonsCodeProjectProjectIdRoute
@@ -249,6 +263,7 @@ export interface FileRoutesByTo {
   '/progress': typeof ProgressRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/api/evaluations': typeof ApiEvaluationsRouteWithChildren
   '/evaluation/compare': typeof EvaluationCompareRoute
   '/evaluation/criteria': typeof EvaluationCriteriaRoute
   '/evaluation/leaderboard': typeof EvaluationLeaderboardRoute
@@ -259,6 +274,7 @@ export interface FileRoutesByTo {
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
   '/hackathons': typeof HackathonsIndexRoute
+  '/api/evaluations/$id': typeof ApiEvaluationsIdRoute
   '/evaluation/project/$id': typeof EvaluationProjectIdRoute
   '/evaluation/resume/$id': typeof EvaluationResumeIdRoute
   '/hackathons/$code/project/$projectId': typeof HackathonsCodeProjectProjectIdRoute
@@ -283,6 +299,7 @@ export interface FileRoutesById {
   '/progress': typeof ProgressRoute
   '/reports': typeof ReportsRoute
   '/terms': typeof TermsRoute
+  '/api/evaluations': typeof ApiEvaluationsRouteWithChildren
   '/evaluation/compare': typeof EvaluationCompareRoute
   '/evaluation/criteria': typeof EvaluationCriteriaRoute
   '/evaluation/leaderboard': typeof EvaluationLeaderboardRoute
@@ -293,6 +310,7 @@ export interface FileRoutesById {
   '/review/developer': typeof ReviewDeveloperRoute
   '/review/project': typeof ReviewProjectRoute
   '/hackathons/': typeof HackathonsIndexRoute
+  '/api/evaluations/$id': typeof ApiEvaluationsIdRoute
   '/evaluation/project/$id': typeof EvaluationProjectIdRoute
   '/evaluation/resume/$id': typeof EvaluationResumeIdRoute
   '/hackathons/$code/project/$projectId': typeof HackathonsCodeProjectProjectIdRoute
@@ -318,6 +336,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/reports'
     | '/terms'
+    | '/api/evaluations'
     | '/evaluation/compare'
     | '/evaluation/criteria'
     | '/evaluation/leaderboard'
@@ -328,6 +347,7 @@ export interface FileRouteTypes {
     | '/review/developer'
     | '/review/project'
     | '/hackathons/'
+    | '/api/evaluations/$id'
     | '/evaluation/project/$id'
     | '/evaluation/resume/$id'
     | '/hackathons/$code/project/$projectId'
@@ -350,6 +370,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/reports'
     | '/terms'
+    | '/api/evaluations'
     | '/evaluation/compare'
     | '/evaluation/criteria'
     | '/evaluation/leaderboard'
@@ -360,6 +381,7 @@ export interface FileRouteTypes {
     | '/review/developer'
     | '/review/project'
     | '/hackathons'
+    | '/api/evaluations/$id'
     | '/evaluation/project/$id'
     | '/evaluation/resume/$id'
     | '/hackathons/$code/project/$projectId'
@@ -383,6 +405,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/reports'
     | '/terms'
+    | '/api/evaluations'
     | '/evaluation/compare'
     | '/evaluation/criteria'
     | '/evaluation/leaderboard'
@@ -393,6 +416,7 @@ export interface FileRouteTypes {
     | '/review/developer'
     | '/review/project'
     | '/hackathons/'
+    | '/api/evaluations/$id'
     | '/evaluation/project/$id'
     | '/evaluation/resume/$id'
     | '/hackathons/$code/project/$projectId'
@@ -417,6 +441,7 @@ export interface RootRouteChildren {
   ProgressRoute: typeof ProgressRoute
   ReportsRoute: typeof ReportsRoute
   TermsRoute: typeof TermsRoute
+  ApiEvaluationsRoute: typeof ApiEvaluationsRouteWithChildren
   ReportIdRoute: typeof ReportIdRoute
   ReviewDeveloperRoute: typeof ReviewDeveloperRoute
   ReviewProjectRoute: typeof ReviewProjectRoute
@@ -543,6 +568,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/evaluations': {
+      id: '/api/evaluations'
+      path: '/api/evaluations'
+      fullPath: '/api/evaluations'
+      preLoaderRoute: typeof ApiEvaluationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/evaluation/compare': {
       id: '/evaluation/compare'
       path: '/compare'
@@ -612,6 +644,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/review/project'
       preLoaderRoute: typeof ReviewProjectRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/evaluations/$id': {
+      id: '/api/evaluations/$id'
+      path: '/$id'
+      fullPath: '/api/evaluations/$id'
+      preLoaderRoute: typeof ApiEvaluationsIdRouteImport
+      parentRoute: typeof ApiEvaluationsRoute
     }
     '/evaluation/project/$id': {
       id: '/evaluation/project/$id'
@@ -714,6 +753,18 @@ const HackathonsRouteWithChildren = HackathonsRoute._addFileChildren(
   HackathonsRouteChildren,
 )
 
+interface ApiEvaluationsRouteChildren {
+  ApiEvaluationsIdRoute: typeof ApiEvaluationsIdRoute
+}
+
+const ApiEvaluationsRouteChildren: ApiEvaluationsRouteChildren = {
+  ApiEvaluationsIdRoute: ApiEvaluationsIdRoute,
+}
+
+const ApiEvaluationsRouteWithChildren = ApiEvaluationsRoute._addFileChildren(
+  ApiEvaluationsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
@@ -732,6 +783,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProgressRoute: ProgressRoute,
   ReportsRoute: ReportsRoute,
   TermsRoute: TermsRoute,
+  ApiEvaluationsRoute: ApiEvaluationsRouteWithChildren,
   ReportIdRoute: ReportIdRoute,
   ReviewDeveloperRoute: ReviewDeveloperRoute,
   ReviewProjectRoute: ReviewProjectRoute,

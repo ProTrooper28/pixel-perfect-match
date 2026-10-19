@@ -1,0 +1,281 @@
+/**
+ * Evaluation agent — data schema.
+ *
+ * Three things live here, all validated with zod so callers and the model are
+ * held to the same contract:
+ *
+ *   1. `EvaluationSubmission`     — what a caller sends to start an evaluation.
+ *   2. `StructuredEvaluation`     — the machine-readable evaluation the model
+ *                                   must return: scores per dimension,
+ *                                   reasoning, evidence, strengths, weaknesses
+ *                                   and red flags. Never free text.
+ *   3. `EvaluationRun`            — the persisted lifecycle record
+ *                                   (pending → processing → completed|failed).
+ *
+ * The schema is deliberately strict about *shape* and lenient about *content*:
+ * a malformed model response fails validation loudly (the run is marked
+ * `failed` with the reason) instead of being coerced into plausible-looking
+ * numbers — a fabricated score would silently corrupt the leaderboard, exactly
+ * what services/judging/ai-evaluation.service refuses to do.
+ */
+
+import { z } from "zod";
+
+/* ------------------------------------------------------------------ status */
+
+export const EVALUATION_RUN_STATUSES = [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+] as const;
+
+export type EvaluationRunStatus = (typeof EVALUATION_RUN_STATUSES)[number];
+
+export function isEvaluationRunStatus(value: unknown): value is EvaluationRunStatus {
+  return (
+    typeof value === "string" &&
+    (EVALUATION_RUN_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+/* -------------------------------------------------------------- submission */
+
+/**
+ * A project submission as handed to the agent.
+ *
+ * Only `name` is required: guest/local submissions may be sparse, and the
+ * missing parts become explicit evidence gaps rather than request errors.
+ * `presentation.text` carries pre-extracted PPT/PDF content today; the
+ * document-OCR service fills it automatically once that service is plugged in.
+ */
+export const EvaluationSubmissionSchema = z.object({
+  /** Optional external id (project row, guest submission id, …). */
+  submissionId: z.string().min(1).max(200).optional(),
+  name: z.string().min(1).max(300),
+  description: z.string().max(30000).optional().nullable(),
+  problemStatement: z.string().max(30000).optional().nullable(),
+  solution: z.string().max(30000).optional().nullable(),
+  technologies: z.array(z.string().min(1).max(120)).max(60).optional(),
+  repoUrl: z.string().max(600).optional().nullable(),
+  websiteUrl: z.string().max(600).optional().nullable(),
+  team: z.string().max(400).optional().nullable(),
+  presentation: z
+    .object({
+      name: z.string().max(400).optional(),
+      /** Pre-extracted slide/document text (OCR service fills this later). */
+      text: z.string().max(120000).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
+  /** Free-form caller notes (demo video transcript, extra claims, …). */
+  notes: z.string().max(60000).optional().nullable(),
+});
+
+export type EvaluationSubmission = z.infer<typeof EvaluationSubmissionSchema>;
+
+export const StartEvaluationInputSchema = z.object({
+  submission: EvaluationSubmissionSchema,
+});
+
+export type StartEvaluationInput = z.infer<typeof StartEvaluationInputSchema>;
+
+/* ------------------------------------------------------------------ result */
+
+/**
+ * The dimensions the agent scores. They mirror the platform's evaluation
+ * brief: description, PPT/PDF, repository/README, deployed site, technical
+ * implementation, features, and evidence integrity (claims vs. proof).
+ */
+export const EVALUATION_DIMENSIONS = [
+  "project_description",
+  "presentation",
+  "repository",
+  "website",
+  "technical_implementation",
+  "features_functionality",
+  "evidence_integrity",
+] as const;
+
+export type EvaluationDimension = (typeof EVALUATION_DIMENSIONS)[number];
+
+export const DimensionScoreSchema = z.object({
+  dimension: z.enum(EVALUATION_DIMENSIONS),
+  /** 0–100. */
+  score: z.number().min(0).max(100),
+  reasoning: z.string().min(1).max(4000),
+});
+export type DimensionScore = z.infer<typeof DimensionScoreSchema>;
+
+/** Where an evidence item came from. `none` = could not be verified anywhere. */
+export const EVIDENCE_SOURCES = [
+  "description",
+  "presentation",
+  "repository",
+  "website",
+  "manual",
+  "none",
+] as const;
+
+export const EvidenceItemSchema = z.object({
+  claim: z.string().min(1).max(2000),
+  source: z.enum(EVIDENCE_SOURCES),
+  /** Verbatim supporting snippet, when the source text actually contains it. */
+  quote: z.string().max(4000).optional().nullable(),
+  /** True only when provided source text supports the claim. */
+  verified: z.boolean(),
+  /** Gap/justification note — e.g. which ingestion service is missing. */
+  note: z.string().max(2000).optional().nullable(),
+});
+export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
+
+export const RedFlagSchema = z.object({
+  label: z.string().min(1).max(300),
+  severity: z.enum(["low", "medium", "high"]),
+  detail: z.string().min(1).max(4000),
+});
+export type RedFlag = z.infer<typeof RedFlagSchema>;
+
+/** The model's raw evaluation payload, before the envelope is attached. */
+export const StructuredEvaluationContentSchema = z
+  .object({
+    summary: z.string().min(1).max(8000),
+    overallScore: z.number().min(0).max(100),
+    /** Exactly one score per dimension — enforced below. */
+    scores: z.array(DimensionScoreSchema),
+    reasoning: z.string().min(1).max(20000),
+    evidence: z.array(EvidenceItemSchema),
+    strengths: z.array(z.string().min(1).max(2000)),
+    weaknesses: z.array(z.string().min(1).max(2000)),
+    redFlags: z.array(RedFlagSchema),
+    /** Model self-confidence, 0–1. */
+    confidence: z.number().min(0).max(1).optional().nullable(),
+  })
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    for (const entry of value.scores) {
+      if (seen.has(entry.dimension)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["scores"],
+          message: `duplicate score for dimension "${entry.dimension}"`,
+        });
+      }
+      seen.add(entry.dimension);
+    }
+    for (const dimension of EVALUATION_DIMENSIONS) {
+      if (!seen.has(dimension)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["scores"],
+          message: `missing score for dimension "${dimension}"`,
+        });
+      }
+    }
+  });
+
+export type StructuredEvaluationContent = z.infer<
+  typeof StructuredEvaluationContentSchema
+>;
+
+/** What the agent persists and returns: content + provenance envelope. */
+export interface StructuredEvaluation extends StructuredEvaluationContent {
+  schemaVersion: "1.0";
+  /** Model id that produced it (null when a custom provider omits it). */
+  model: string | null;
+  evaluatedAt: string;
+}
+
+/* --------------------------------------------------------------------- run */
+
+export interface EvaluationRun {
+  id: string;
+  status: EvaluationRunStatus;
+  submission: EvaluationSubmission;
+  /** Final structured evaluation — only when `status === "completed"`. */
+  result: StructuredEvaluation | null;
+  /** Failure reason — only when `status === "failed"`. */
+  error: string | null;
+  model: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string;
+}
+
+/* ----------------------------------------------------------------- errors */
+
+/** Input to `startEvaluation` failed validation → HTTP 400. */
+export class EvaluationValidationError extends Error {
+  readonly issues: string[];
+  constructor(issues: string[]) {
+    super(`Invalid evaluation input: ${issues.join("; ")}`);
+    this.name = "EvaluationValidationError";
+    this.issues = issues;
+  }
+}
+
+/** A model response could not be parsed into the schema → run `failed`. */
+export class EvaluationSchemaError extends Error {
+  readonly issues: string[];
+  constructor(message: string, issues: string[] = []) {
+    super(issues.length > 0 ? `${message}: ${issues.join("; ")}` : message);
+    this.name = "EvaluationSchemaError";
+    this.issues = issues;
+  }
+}
+
+/* ---------------------------------------------------------------- parsing */
+
+/** Pull the first JSON object out of a possibly noisy model response. */
+function extractJsonObject(raw: string): unknown {
+  const trimmed = raw.trim();
+  const unfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  try {
+    return JSON.parse(unfenced);
+  } catch {
+    // Models sometimes wrap JSON in a sentence — fall back to the outermost
+    // braces before giving up.
+    const start = unfenced.indexOf("{");
+    const end = unfenced.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(unfenced.slice(start, end + 1));
+      } catch {
+        /* fall through to the typed error below */
+      }
+    }
+  }
+  throw new EvaluationSchemaError("The model response was not a valid JSON object");
+}
+
+/**
+ * Parse and validate a raw model response into evaluation content.
+ *
+ * Throws `EvaluationSchemaError` (with per-field reasons) instead of returning
+ * a partial or coerced result — the caller marks the run `failed`.
+ */
+export function parseStructuredEvaluation(raw: string): StructuredEvaluationContent {
+  const parsed = StructuredEvaluationContentSchema.safeParse(extractJsonObject(raw));
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map(
+      (issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`,
+    );
+    throw new EvaluationSchemaError("Model response failed schema validation", issues);
+  }
+  return parsed.data;
+}
+
+/** Validate a caller payload; throws `EvaluationValidationError` with details. */
+export function parseStartEvaluationInput(input: unknown): StartEvaluationInput {
+  const parsed = StartEvaluationInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map(
+      (issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`,
+    );
+    throw new EvaluationValidationError(issues);
+  }
+  return parsed.data;
+}
