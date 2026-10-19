@@ -22,3 +22,30 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Environment variables
+
+Secrets live only in `.env` / `.env.local` (gitignored — never commit them).
+`.env.example` at the repo root documents the names; `.env` and `.env.*` are
+ignored by Git, and only `.env.example` may be committed.
+
+**Client-safe (browser-exposed via `VITE_` — public values only):**
+
+| Name | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Supabase project URL (public) |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key (public, protected by RLS) |
+
+**Server-only (never prefix with `VITE_`, never ship to the browser):**
+
+| Name | Purpose |
+| --- | --- |
+| `EVAL_AGENT_API_KEY` | LLM API key for the evaluation agent |
+| `EVAL_AGENT_BASE_URL` | OpenAI-compatible endpoint |
+| `EVAL_AGENT_MODEL` | Model id |
+| `EVAL_AGENT_TOKEN` | Optional bearer token gating the evaluation HTTP endpoints |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (server-side persistence) |
+| `DOC_INGESTION_URL` | Document ingestion microservice base URL |
+| `DOC_INGESTION_SERVICE_TOKEN` | Shared token for the ingestion microservice |
+
+The Python service under `doc-ingestion/` has its own `doc-ingestion/.env.example`.
