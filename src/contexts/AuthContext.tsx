@@ -178,22 +178,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const continueAsGuest = useCallback(async () => {
-    // Ensure a real anonymous Supabase session so this button always produces a
-    // usable auth.uid() for RLS-protected inserts. If anonymous sign-ins are
-    // disabled on the project and the call fails, fall back to the old
-    // localStorage-based guest path so the prototype remains usable.
-    await authService
-      .signInAnonymously()
-      .then(() => {
-        setIsGuest(true);
-        writeGuestFlag(true);
-      })
-      .catch(() => {
-        /* anonymous sign-ins disabled on the project — fall back to the old
-           localStorage path so the app remains usable. */
-        setIsGuest(true);
-        writeGuestFlag(true);
-      });
+    // Enter guest mode *first* — synchronously — so the landing page can
+    // navigate straight into the chosen workflow without racing the route
+    // guard while a network round-trip is still in flight. The flag is also
+    // persisted immediately, so a refresh restores the same guest session.
+    setIsGuest(true);
+    writeGuestFlag(true);
+
+    // Best-effort anonymous Supabase session so guest writes get a usable
+    // auth.uid() for RLS. If anonymous sign-ins are disabled, unset, or the
+    // project has no Supabase, the localStorage guest path above stays active.
+    try {
+      await authService.signInAnonymously();
+    } catch {
+      /* anonymous sign-ins unavailable — the localStorage guest flag covers
+         routing and the browser-local guest services keep working. */
+    }
   }, []);
 
   const setRole = useCallback((next: UserRole) => {

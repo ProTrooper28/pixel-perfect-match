@@ -5,6 +5,7 @@ import { ArrowRight, Gavel, UserRound } from "lucide-react";
 import "@/components/marketing/cinematic.css";
 import "@/components/marketing/neon-hero.css";
 import TechText from "@/components/marketing/TechText";
+import { useAuth } from "@/hooks/useAuth";
 
 const NAV = [
   { label: "Features", to: "/features" as const, i: 0 },
@@ -14,19 +15,22 @@ const NAV = [
 ];
 
 /**
- * The two ways into the product. The hero carries one CTA ("Get Started" →
- * sign-in, where the role is chosen before any account details); this strip
- * keeps both roles visible on the landing page itself.
+ * The two ways into the product. Each door starts a guest session for its
+ * role and enters that workflow immediately — no sign-in screen in between
+ * (the hero's "Get Started" simply brings these choices into view). Real
+ * sign-in/sign-up stays reachable from the nav's "Sign in" entry.
  */
 const ROLES = [
   {
     role: "manager" as const,
+    to: "/dashboard" as const,
     title: "Continue as Project Manager",
     description: "Manage hackathons, review candidates, evaluate projects and access reports.",
     icon: Gavel,
   },
   {
     role: "candidate" as const,
+    to: "/review/project" as const,
     title: "Continue as Candidate",
     description: "Submit your project, complete your profile and view your own evaluation results.",
     icon: UserRound,
@@ -103,6 +107,18 @@ export const Route = createFileRoute("/")({
 function Landing() {
   const { open, setOpen, toggleRef } = useMobileMenu();
   const heroRef = useRef<HTMLElement>(null);
+  const { setRole, continueAsGuest } = useAuth();
+
+  /**
+   * Landing-page entry: remember the chosen role, open a guest session for
+   * it and let the link carry the visitor straight into that workflow.
+   * `continueAsGuest` flags the session synchronously, so the route guard on
+   * the other side already sees a guest when navigation lands.
+   */
+  const enterAsGuest = (role: "manager" | "candidate") => {
+    setRole(role);
+    void continueAsGuest();
+  };
 
   /**
    * Restrained mouse parallax: the wash, tube and halo drift a few pixels with
@@ -226,20 +242,25 @@ function Landing() {
           </p>
 
           <div>
-            <Link to="/login" className="neon-cta">
+            <a href="#choose-role" className="neon-cta">
               Get Started <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
+            </a>
             <span className="neon-cta__hint">Choose your role in the next step</span>
           </div>
         </div>
       </section>
 
       {/* Two ways in — the roles stay visible on the landing page itself */}
-      <section className="neon-roles" aria-label="Choose how to continue">
+      <section id="choose-role" className="neon-roles" aria-label="Choose how to continue">
         <div className="neon-roles__inner">
           <p className="neon-roles__eyebrow">Two ways in</p>
           {ROLES.map((r) => (
-            <Link key={r.role} to="/login" search={{ role: r.role }} className="neon-role">
+            <Link
+              key={r.role}
+              to={r.to}
+              className="neon-role"
+              onClick={() => enterAsGuest(r.role)}
+            >
               <span className="neon-role__title">
                 <span className="inline-flex items-center gap-2.5">
                   <r.icon className="h-4 w-4 text-[var(--neon)]" aria-hidden />

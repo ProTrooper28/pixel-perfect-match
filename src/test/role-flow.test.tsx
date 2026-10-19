@@ -5,7 +5,7 @@ import {
   RouterProvider,
   type AnyRouter,
 } from "@tanstack/react-router";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { routeTree } from "@/routeTree.gen";
@@ -13,7 +13,9 @@ import { routeTree } from "@/routeTree.gen";
 /**
  * The two-role product flow, through the real router.
  *
- * - The landing page offers exactly two doors: Project Manager and Candidate.
+ * - The landing page offers exactly two doors: Project Manager and Candidate,
+ *   and each one starts a guest session that enters its workflow directly
+ *   (no sign-in screen in between).
  * - Navigation reflects the signed-in role: candidates never see the
  *   administrative areas, managers see all of them.
  * - A candidate who knows a manager URL is redirected back to their dashboard.
@@ -51,8 +53,9 @@ describe("landing page role choices", () => {
     const manager = await screen.findByRole("link", { name: /Continue as Project Manager/i });
     const candidate = screen.findByRole("link", { name: /Continue as Candidate/i });
 
-    expect(manager.getAttribute("href")).toContain("/login?role=manager");
-    expect((await candidate).getAttribute("href")).toContain("/login?role=candidate");
+    // Each door points straight at its workflow — not at the sign-in screen.
+    expect(manager.getAttribute("href")).toContain("/dashboard");
+    expect((await candidate).getAttribute("href")).toContain("/review/project");
 
     // The descriptions communicate the difference between the two roles.
     expect(
@@ -65,6 +68,78 @@ describe("landing page role choices", () => {
     // No guest entry anywhere on the page.
     expect(screen.queryByText(/Continue as Guest/i)).toBeNull();
   }, 20000);
+});
+
+describe("guest entry from the landing page", () => {
+  it("sends a project manager straight to the dashboard in a guest session", async () => {
+    // A fresh visitor: no guest flag, no role chosen yet.
+    window.localStorage.removeItem("buildlens-guest");
+    window.localStorage.removeItem("buildlens-role");
+
+    const router = await renderRoute("/");
+    const manager = await screen.findByRole("link", { name: /Continue as Project Manager/i });
+    fireEvent.click(manager);
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/dashboard"), {
+      timeout: 5000,
+    });
+
+    // Guest session + role are persisted…
+    expect(window.localStorage.getItem("buildlens-guest")).toBe("true");
+    expect(window.localStorage.getItem("buildlens-role")).toBe("manager");
+    // …and no sign-in screen sat between the choice and the workflow.
+    expect(router.state.location.pathname).not.toBe("/login");
+
+    // The manager workspace renders behind the guard.
+    const nav = within(
+      await screen.findByRole("navigation", { name: /^App$/i }, { timeout: 5000 }),
+    );
+    expect(nav.getByRole("link", { name: "Hackathons" })).toBeInTheDocument();
+    expect(nav.getByRole("link", { name: "Evaluation" })).toBeInTheDocument();
+  }, 30000);
+
+  it("sends a candidate straight into the project submission flow as a guest", async () => {
+    window.localStorage.removeItem("buildlens-guest");
+    window.localStorage.removeItem("buildlens-role");
+
+    const router = await renderRoute("/");
+    const candidate = await screen.findByRole("link", { name: /Continue as Candidate/i });
+    fireEvent.click(candidate);
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/review/project"), {
+      timeout: 5000,
+    });
+
+    expect(window.localStorage.getItem("buildlens-guest")).toBe("true");
+    expect(window.localStorage.getItem("buildlens-role")).toBe("candidate");
+    expect(router.state.location.pathname).not.toBe("/login");
+
+    // The submission page opens with its guest path — no sign-in wall.
+    await screen.findByText(/Submitting without an account/i, {}, { timeout: 5000 });
+    expect(screen.queryByText(/Sign in to submit a project review/i)).toBeNull();
+  }, 30000);
+
+  it("keeps the guest session and chosen role across a refresh", async () => {
+    // Enter through the landing page as a candidate guest.
+    const first = await renderRoute("/");
+    const candidate = await screen.findByRole("link", { name: /Continue as Candidate/i });
+    fireEvent.click(candidate);
+    await waitFor(() => expect(first.state.location.pathname).toBe("/review/project"), {
+      timeout: 5000,
+    });
+
+    // "Refresh": a brand-new router over the same browser storage.
+    cleanup();
+    const second = await renderRoute("/dashboard");
+
+    await screen.findByRole("navigation", { name: /^App$/i }, { timeout: 5000 });
+    await waitFor(() => expect(second.state.location.pathname).toBe("/dashboard"), {
+      timeout: 5000,
+    });
+    // Still the same guest with the same role — not bounced to sign-in.
+    expect(window.localStorage.getItem("buildlens-guest")).toBe("true");
+    expect(window.localStorage.getItem("buildlens-role")).toBe("candidate");
+  }, 30000);
 });
 
 describe("role-specific navigation", () => {

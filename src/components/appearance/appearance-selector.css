@@ -1,0 +1,296 @@
+/* BuildLens — appearance selector panel.
+ *
+ * Composable, single-control, mobile-friendly. The selector is hidden behind
+ * a button by default and opens into a small panel. The background row uses
+ * CSS sample colours, so the layout stays readable and lightweight.
+ */
+
+@layer appearance {
+  .appearance-selector {
+    position: relative;
+    z-index: 2;
+  }
+
+  .appearance-selector__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted-foreground);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+  }
+
+  .appearance-selector__trigger:hover {
+    color: var(--foreground);
+    border-color: color-mix(in oklab, var(--border) 45%, var(--primary) 55%);
+    background: var(--accent);
+  }
+
+  .appearance-selector__trigger:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .appearance-selector__trigger-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .appearance-selector__trigger-indicator {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--muted);
+  }
+
+  .appearance-selector__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: transparent;
+    animation: fade 0.18s ease;
+  }
+
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 0.25; }
+  }
+
+  .appearance-selector__panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 100;
+    min-width: 340px;
+    max-width: 90vw;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.6);
+    animation: pop 0.18s ease;
+  }
+
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .appearance-selector__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .appearance-selector__header-title {
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .appearance-selector__header-reset {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 8px;
+    transition: color 160ms ease, background-color 160ms ease;
+  }
+
+  .appearance-selector__header-reset:hover {
+    color: var(--foreground);
+    background: var(--muted);
+  }
+
+  .appearance-selector__group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .appearance-selector__group-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* Theme radio row */
+  .appearance-selector__theme {
+    display: flex;
+    gap: 8px;
+  }
+
+  .appearance-selector__theme-option {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+  }
+
+  .appearance-selector__theme-option:hover {
+    border-color: color-mix(in oklab, var(--border) 45%, var(--primary) 55%);
+    background: var(--accent);
+  }
+
+  .appearance-selector__theme-option:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .appearance-selector__theme-option.is-active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .appearance-selector__theme-option-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .appearance-selector__theme-option.is-active .appearance-selector__theme-option-icon {
+    background: color-mix(in oklab, var(--primary) 20%, transparent);
+    color: var(--primary-foreground);
+  }
+
+  .appearance-selector__theme-option-label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* Background row */
+  .appearance-selector__backgrounds {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  .appearance-selector__background {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .appearance-selector__background:hover {
+    border-color: color-mix(in oklab, var(--border) 45%, var(--primary) 55%);
+    transform: translateY(-1px);
+  }
+
+  .appearance-selector__background:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .appearance-selector__background.is-active {
+    border-color: var(--primary);
+    background: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 25%, transparent);
+  }
+
+  .appearance-selector__background-thumb {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+  }
+
+  .appearance-selector__background-thumb::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--background-sample, #0b0f14) 60%, transparent) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+
+  .appearance-selector__background.is-active .appearance-selector__background-thumb::after {
+    opacity: 1;
+  }
+
+  .appearance-selector__background-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .appearance-selector__background-check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--foreground);
+    color: var(--card);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--foreground) 20%, transparent);
+  }
+
+  .appearance-selector__hint {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted-foreground);
+    line-height: 1.5;
+  }
+
+  .appearance-selector__hint-text {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .appearance-selector__hint-text svg {
+    flex: 0 0 auto;
+    color: var(--primary);
+  }
+}

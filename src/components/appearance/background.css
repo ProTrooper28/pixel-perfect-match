@@ -1,0 +1,133 @@
+/* BuildLens — background layer CSS.
+ *
+ * One `.background-<id>` class per preset renders the atmospheric layers.
+ * All values are pure CSS gradients — no images, no separate assets.
+ *
+ * Order matters here: the base layers first, then the wash above them.
+ */
+@layer appearance {
+  .background-charcoal {
+    background-image:
+      radial-gradient(120% 70% at 50% -12%, #0b0f14 0%, transparent 62%),
+      radial-gradient(circle 45vmax at 50% 40%, #0b0f14 0%, transparent 55%);
+  }
+  .background-deep-ember {
+    background-image:
+      radial-gradient(120% 70% at 50% -12%, #8a3322 0%, transparent 62%),
+      radial-gradient(circle 45vmax at 50% 40%, #0b0f14 0%, transparent 55%),
+      repeating-radial-gradient(circle at 50% 6%, transparent 0 130px, #8a3322 130px 131px);
+  }
+  .background-prismatic {
+    background-image:
+      radial-gradient(120% 70% at 50% -10%, #1e2245 0%, transparent 60%),
+      radial-gradient(circle 40vmax at 78% 30%, color-mix(in oklab, #1e2245 70%, transparent) 0%, transparent 55%),
+      linear-gradient(180deg, transparent 45%, color-mix(in oklab, #1e2245 18%, transparent) 46%, #1e2245 52%, transparent 53%),
+      repeating-linear-gradient(180deg, color-mix(in oklab, #1e2245 10%, transparent) 0 1px, transparent 1px 38%);
+  }
+  .background-celestial {
+    background-image:
+      radial-gradient(125% 75% at 50% -8%, #0b1f3a 0%, transparent 64%),
+      radial-gradient(circle 38vmax at 18% 80%, color-mix(in oklab, #0b1f3a 55%, transparent) 0%, transparent 52%),
+      radial-gradient(circle 30vmax at 85% 75%, color-mix(in oklab, #0b1f3a 45%, transparent) 0%, transparent 52%),
+      repeating-linear-gradient(180deg, color-mix(in oklab, #0b1f3a 10%, transparent) 0 1px, transparent 1px 38%);
+  }
+  .background-neon {
+    background-image:
+      radial-gradient(120% 70% at 50% -12%, #3a1030 0%, transparent 58%),
+      radial-gradient(circle 52vmax at 50% 30%, color-mix(in oklab, #ff7eb3 60%, transparent) 0%, transparent 56%),
+      repeating-radial-gradient(circle at 50% 6%, transparent 0 150px, #3a1030 150px 151px);
+  }
+  .background-indigo-marbles {
+    background-image:
+      radial-gradient(125% 75% at 50% -8%, #141a2e 0%, transparent 66%),
+      radial-gradient(circle 38vmax at 18% 78%, color-mix(in oklab, #7b5ea7 45%, transparent) 0%, transparent 50%),
+      radial-gradient(circle 42vmax at 68% 30%, color-mix(in oklab, #3a4a7a 50%, transparent) 0%, transparent 46%),
+      radial-gradient(circle 42vmax at 28% 70%, color-mix(in oklab, #7b5ea7 40%, transparent) 0%, transparent 44%);
+  }
+  .background-warm-paper {
+    background-image:
+      radial-gradient(110% 65% at 50% -8%, #f4f2ed 0%, transparent 60%),
+      radial-gradient(circle 22vmax at 92% 70%, #0b0f14 0%, transparent 55%),
+      linear-gradient(180deg, transparent 50%, color-mix(in oklab, #f4f2ed 8%, transparent) 51%, #f4f2ed 55%),
+      repeating-linear-gradient(180deg, transparent 0 220px, color-mix(in oklab, #f4f2ed 4%, transparent) 220px 221px);
+  }
+  .background-cloud-mist {
+    background-image:
+      linear-gradient(180deg, #f4f2ed 0%, color-mix(in oklab, #f4f2ed 80%, transparent) 42%, color-mix(in oklab, #0b0f14 20%, transparent) 48%, transparent 52%),
+      repeating-linear-gradient(180deg, transparent 0 220px, color-mix(in oklab, #f4f2ed 4%, transparent) 220px 221px);
+  }
+}
+
+/**
+ * Adaptive overlay read as `var(--app-overlay)`.
+ *
+ * The generator emits a single token; the renderer replaces it in the DOM
+ * whenever the appearance changes. The overlay sits above the background layers
+ * but below the UI band, so it never blocks the product.
+ */
+@layer appearance {
+  :root {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #0b0f14 42%, transparent) 0%, transparent 62%);
+  }
+
+  .dark {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #0b0f14 42%, transparent) 0%, transparent 62%);
+  }
+
+  .light {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #f4f2ed 8%, transparent) 0%, transparent 62%);
+  }
+
+  /**
+   * Override per preset. The tokens mirror the generated background classes in
+   * `background.css` so the renderer can swap only this one property.
+   */
+  .background-deep-ember {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #0b0f14 46%, transparent) 0%, transparent 62%);
+  }
+
+  .background-prismatic {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #1e2245 50%, transparent) 0%, transparent 62%);
+  }
+
+  .background-celestial {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #0b1f3a 48%, transparent) 0%, transparent 62%);
+  }
+
+  .background-neon {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #3a1030 58%, transparent) 0%, transparent 62%);
+  }
+
+  .background-indigo-marbles {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #141a2e 48%, transparent) 0%, transparent 62%);
+  }
+
+  .background-warm-paper {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #f4f2ed 6%, transparent) 0%, transparent 62%);
+  }
+
+  .background-cloud-mist {
+    --app-overlay: linear-gradient(180deg, color-mix(in oklab, #f4f2ed 6%, transparent) 0%, transparent 62%);
+  }
+}
+
+/**
+ * The transition edge between what was and what is. Only this one property
+ * animates (400–700ms), so the UI itself never moves.
+ */
+@layer appearance {
+  .background-layer {
+    transition: background-image 0.6s ease-in-out;
+  }
+}
+
+/**
+ * The UI band that always sits above the background layer. It gets a subtle
+ * separation border when the background is busy.
+ */
+@layer appearance {
+  .background-ui {
+    position: relative;
+    z-index: 1;
+  }
+}
