@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { SubmissionDetailRouteView } from "@/components/evaluation/SubmissionDetailView";
+import { RequireRole } from "@/components/auth/RequireRole";
 
 export const Route = createFileRoute("/evaluation/resume/$id")({
   head: () => ({
@@ -17,5 +18,9 @@ export const Route = createFileRoute("/evaluation/resume/$id")({
 
 function ResumeEvaluationPage() {
   const { id } = Route.useParams();
-  return <SubmissionDetailRouteView category="resume" submissionId={id} />;
+  return (
+    <RequireRole role="manager">
+      <SubmissionDetailRouteView category="resume" submissionId={id} />
+    </RequireRole>
+  );
 }

@@ -212,7 +212,7 @@ export function buildReportExportHtml(input: ReportExportInput): string {
     font: 15px/1.6 "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif; }
   main { max-width: 860px; margin: 0 auto; background: #fff; border: 1px solid #dfe1e6;
     border-radius: 12px; padding: 40px; }
-  .brand { margin: 0 0 4px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #3b82f6; font-weight: 600; }
+  .brand { margin: 0 0 4px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #475569; font-weight: 600; }
   h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; }
   h2 { margin: 0 0 10px; font-size: 17px; }
   .sub { margin: 0 0 20px; color: #5b6373; }

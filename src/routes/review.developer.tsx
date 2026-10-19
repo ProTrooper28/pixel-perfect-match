@@ -18,6 +18,7 @@ import { ReviewDetails } from "@/components/developer/ReviewDetails";
 import { EmptyDeveloperDashboard } from "@/components/EmptyDeveloperDashboard";
 import { ErrorState } from "@/components/state/ErrorState";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { useAuth } from "@/hooks/useAuth";
 import { deleteProject } from "@/services/project.service";
 import { deleteReport } from "@/services/report.service";
@@ -46,7 +47,13 @@ export const Route = createFileRoute("/review/developer")({
       },
     ],
   }),
-  component: ReviewDeveloperPage,
+  // Candidate reviews are the project-manager side: candidates never see
+  // other candidates' work.
+  component: () => (
+    <RequireRole role="manager">
+      <ReviewDeveloperPage />
+    </RequireRole>
+  ),
 });
 
 function ReviewDeveloperPage() {

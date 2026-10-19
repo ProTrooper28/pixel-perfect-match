@@ -55,18 +55,19 @@
   --secondary: oklch(0.952 0.005 85);
   --secondary-foreground: oklch(0.22 0.006 265);
   --muted: oklch(0.952 0.005 85);
-  --muted-foreground: oklch(0.505 0.011 265);
+  --muted-foreground: oklch(0.475 0.011 265);
   --accent: oklch(0.936 0.006 85);
   --accent-foreground: oklch(0.22 0.006 265);
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
   --success: oklch(0.65 0.17 152);
   --warning: oklch(0.75 0.16 75);
-  --border: oklch(0.904 0.006 85);
-  --input: oklch(0.904 0.006 85);
-  --ring: oklch(0.623 0.188 259.8);
-  --glow: 0 8px 30px -8px color-mix(in oklab, var(--primary) 60%, transparent);
-  --glow-soft: 0 16px 40px -26px color-mix(in oklab, var(--primary) 55%, transparent);
+  --border: oklch(0.9 0.006 85);
+  --input: oklch(0.885 0.006 85);
+  /* Focus rings, halos and glows always follow the selected accent. */
+  --ring: var(--primary);
+  --glow: 0 8px 30px -8px color-mix(in oklab, var(--primary) 45%, transparent);
+  --glow-soft: 0 16px 40px -26px color-mix(in oklab, var(--primary) 32%, transparent);
   --lens-shadow: oklch(0.2 0.01 265 / 0.06);
   --surface: oklch(1 0 0);
   --surface-hover: oklch(0.972 0.005 85);
@@ -96,7 +97,7 @@
   --input: oklch(1 0 0 / 13%);
   --surface: oklch(0.192 0.005 265);
   --surface-hover: oklch(0.222 0.007 265);
-  --glow-soft: 0 18px 44px -28px oklch(0.62 0.19 259.8 / 0.55);
+  --glow-soft: 0 18px 44px -28px color-mix(in oklab, var(--primary) 55%, transparent);
   --lens-shadow: oklch(0 0 0 / 0.32);
   --card-shadow: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 14px 34px -18px oklch(0 0 0 / 0.62);
   --appearance-base: var(--appearance-base-dark, var(--background));
@@ -119,9 +120,23 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
-    /* Only the canvas tint animates on a theme/background change; surfaces swap
-       instantly so text and cards never fade mid-read. */
+    /* The canvas tint animates a little slower than the surfaces, so a theme or
+       background change reads as one coordinated transition, not a flash. */
     transition: background-color 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* One system-wide colour transition (~260ms) so switching theme, light/dark
+     or environment fades every surface together instead of snapping. This is a
+     zero-specificity default: any component that declares its own `transition`
+     (buttons, cards, the faster hover states) still wins. */
+  :where(*) {
+    transition:
+      background-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      outline-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      fill 260ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
@@ -209,8 +224,9 @@
 
 /* -------------------------------------------------------------- spotlight */
 
-/* Premium cursor spotlight: a soft blue light inside the card and a lit 1px
-   border segment. Driven by CSS variables written from one rAF loop. */
+/* Premium cursor spotlight: a soft light inside the card and a lit 1px border
+   segment, tinted by the selected accent. Driven by CSS variables written from
+   one rAF loop. */
 .spotlight-shell {
   position: relative;
   isolation: isolate;
@@ -233,8 +249,8 @@
   );
   background: radial-gradient(
     circle var(--spotlight-size, 220px) at var(--spotlight-x, 50%) var(--spotlight-y, 0%),
-    color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, transparent) 0%,
-    color-mix(in oklab, var(--spotlight-color, #3b82f6) 22%, transparent) 42%,
+    color-mix(in oklab, var(--spotlight-color, var(--primary)) 55%, transparent) 0%,
+    color-mix(in oklab, var(--spotlight-color, var(--primary)) 22%, transparent) 42%,
     transparent calc(var(--spotlight-size, 220px) * var(--spotlight-softness, 0.8))
   );
 }
@@ -243,8 +259,8 @@
   background: radial-gradient(
     var(--spotlight-size, 220px) calc(var(--spotlight-size, 220px) * 0.7) at var(--spotlight-x, 50%)
       var(--spotlight-y, 0%),
-    color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, transparent) 0%,
-    color-mix(in oklab, var(--spotlight-color, #3b82f6) 22%, transparent) 42%,
+    color-mix(in oklab, var(--spotlight-color, var(--primary)) 55%, transparent) 0%,
+    color-mix(in oklab, var(--spotlight-color, var(--primary)) 22%, transparent) 42%,
     transparent calc(var(--spotlight-size, 220px) * var(--spotlight-softness, 0.8))
   );
 }
@@ -265,7 +281,7 @@
   opacity: calc(var(--spotlight-active, 0) * var(--spotlight-border, 0.35));
   background: radial-gradient(
     180px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0%),
-    color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, white),
+    color-mix(in oklab, var(--spotlight-color, var(--primary)) 55%, white),
     transparent 72%
   );
   -webkit-mask:
@@ -288,7 +304,7 @@
   height: 4px;
   border-radius: 999px;
   transform: translate(-50%, -50%);
-  background: color-mix(in oklab, var(--spotlight-color, #3b82f6) 55%, white);
+  background: color-mix(in oklab, var(--spotlight-color, var(--primary)) 55%, white);
   opacity: calc(var(--spotlight-active, 0) * 0.3);
   filter: blur(2.5px);
   pointer-events: none;
@@ -384,7 +400,7 @@
 }
 
 /* Premium moving accent, reserved for the primary evaluation CTA. A single
-   blue arc travels the 1px border; nothing inside the button moves. */
+   accent arc travels the 1px border; nothing inside the button moves. */
 @property --border-angle {
   syntax: "<angle>";
   inherits: false;
@@ -448,7 +464,7 @@
   }
 }
 
-/* Inputs: calm border transition plus a soft blue focus halo. */
+/* Inputs: calm border transition plus a soft accent-tinted focus halo. */
 .field-focus {
   transition:
     border-color 180ms ease,

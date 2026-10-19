@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { EvaluationLanding } from "@/components/evaluation/EvaluationLanding";
+import { RequireRole } from "@/components/auth/RequireRole";
 
 export const Route = createFileRoute("/evaluation")({
   head: () => ({
@@ -13,5 +14,9 @@ export const Route = createFileRoute("/evaluation")({
       },
     ],
   }),
-  component: EvaluationLanding,
+  component: () => (
+    <RequireRole role="manager">
+      <EvaluationLanding />
+    </RequireRole>
+  ),
 });

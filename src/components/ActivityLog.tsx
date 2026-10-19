@@ -22,7 +22,12 @@ export function ActivityLog({
 }) {
   if (entries.length === 0) {
     return (
-      <div className={cn("rounded-lg border border-dashed border-border/70 p-6 text-sm text-muted-foreground text-center", className)}>
+      <div
+        className={cn(
+          "rounded-lg border border-dashed border-border/70 p-6 text-sm text-muted-foreground text-center",
+          className,
+        )}
+      >
         No activity yet.
       </div>
     );
@@ -36,18 +41,19 @@ export function ActivityLog({
             className={cn(
               "mt-1.5 h-2 w-2 shrink-0 fill-current",
               entry.status === "error" && "text-destructive",
-              entry.status === "warning" && "text-amber-500",
-              entry.status === "success" && "text-emerald-500",
-              entry.status === "info" && "text-sky-500",
+              entry.status === "warning" && "text-warning",
+              entry.status === "success" && "text-success",
+              entry.status === "info" && "text-primary",
               !entry.status && "text-foreground/30",
             )}
           />
           <div className="min-w-0">
             <p className="text-sm leading-relaxed">
-              <span className="font-medium text-foreground">{entry.actor}</span>
-              {" "}
+              <span className="font-medium text-foreground">{entry.actor}</span>{" "}
               <span className="text-foreground/80">{entry.action}</span>
-              {entry.resource && <span className="text-muted-foreground"> on {entry.resource}</span>}
+              {entry.resource && (
+                <span className="text-muted-foreground"> on {entry.resource}</span>
+              )}
               {entry.detail && <span className="text-muted-foreground"> — {entry.detail}</span>}
             </p>
             {entry.children && (

@@ -13,10 +13,43 @@ import type { Session, User } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import * as authService from "@/services/auth.service";
 import { getProfile } from "@/services/profile.service";
-import type { AuthContextValue, OAuthProvider, SignUpWithEmailParams } from "@/types/auth";
+import {
+  isUserRole,
+  type AuthContextValue,
+  type OAuthProvider,
+  type SignUpWithEmailParams,
+  type UserRole,
+} from "@/types/auth";
 import type { Profile } from "@/types/database";
 
 const GUEST_STORAGE_KEY = "buildlens-guest";
+const ROLE_STORAGE_KEY = "buildlens-role";
+
+/** The role chosen on the landing page / sign-in, if any. */
+function readStoredRole(): UserRole | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = window.localStorage.getItem(ROLE_STORAGE_KEY);
+    return isUserRole(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredRole(role: UserRole): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ROLE_STORAGE_KEY, role);
+  } catch {
+    /* storage unavailable — the choice just won't persist */
+  }
+}
+
+/** The role an account was created with, when it has one. */
+function roleFromMetadata(user: User | null): UserRole | null {
+  const value = user?.user_metadata?.["role"];
+  return isUserRole(value) ? value : null;
+}
 
 /** Guest mode is client-only, so guard all localStorage access. */
 function readGuestFlag(): boolean {
@@ -49,10 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  // Adopted in an effect (like the guest flag) so the server and the first
+  // client render agree; the account's own metadata always wins over it.
+  const [roleChoice, setRoleChoice] = useState<UserRole | null>(null);
 
   // Restore any persisted session and subscribe to auth changes.
   useEffect(() => {
     setIsGuest(readGuestFlag());
+    setRoleChoice(readStoredRole());
 
     if (!isSupabaseConfigured) {
       setIsLoading(false);
@@ -159,6 +196,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  const setRole = useCallback((next: UserRole) => {
+    writeStoredRole(next);
+    setRoleChoice(next);
+  }, []);
+
+  // An account's own role (set at sign-up) is authoritative; otherwise the last
+  // explicit choice from the landing page / sign-in applies; candidates are the
+  // default.
+  const role: UserRole = roleFromMetadata(user) ?? roleChoice ?? "candidate";
+  // Only a signed account or a deliberate choice counts as an established role;
+  // the bare default keeps browser-local prototype sessions unrestricted.
+  const roleIsExplicit = roleFromMetadata(user) !== null || roleChoice !== null;
+
   const signOut = useCallback(async () => {
     if (isSupabaseConfigured) {
       try {
@@ -183,6 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user),
       isGuest,
       isSupabaseConfigured,
+      role,
+      roleIsExplicit,
+      setRole,
       signUpWithEmail,
       signInWithEmail,
       signInWithOAuth,
@@ -196,6 +249,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       isLoading,
       isGuest,
+      role,
+      roleIsExplicit,
+      setRole,
       signUpWithEmail,
       signInWithEmail,
       signInWithOAuth,

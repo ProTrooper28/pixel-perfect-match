@@ -313,7 +313,7 @@ function ReviewProject() {
         {isGuest ? (
           <p className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-foreground">
             <UserRound className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            Submitting as a guest — your project and report are saved to this browser.
+            Submitting without an account — your project and report are saved to this browser.
           </p>
         ) : (
           !user && (

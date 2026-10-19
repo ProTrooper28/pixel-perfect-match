@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Clock3, Mail, MessagesSquare } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { MarketingLayout, PageHero } from "@/components/layout/MarketingLayout";
+
+const CONTACT_EMAIL = "hello@buildlens.app";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -26,30 +26,64 @@ function Contact() {
         title="Talk to us"
         subtitle="Questions, partnerships or feedback — we'd love to hear from you."
       />
-      <form
-        className="surface mx-auto my-16 max-w-lg space-y-4 p-6"
-        onSubmit={(e) => {
-          e.preventDefault();
-          toast.success("Message sent", { description: "We'll get back to you soon." });
-          (e.target as HTMLFormElement).reset();
-        }}
-      >
-        <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
-          <Input id="name" required />
+      <div className="mx-auto my-16 max-w-lg space-y-4 px-4 sm:px-6">
+        <div className="surface flex items-start gap-4 p-6">
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary"
+            aria-hidden
+          >
+            <Mail className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-semibold">Email us</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The fastest way to reach the team. We read everything that comes in.
+            </p>
+            <Button asChild className="mt-4" size="sm">
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+            </Button>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" required />
+
+        <div className="surface flex items-start gap-4 p-6">
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary"
+            aria-hidden
+          >
+            <Clock3 className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="font-semibold">Response time</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Typical reply within two business days. Running a hackathon and on a deadline? Say so
+              in the subject line and we'll prioritize it.
+            </p>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="msg">Message</Label>
-          <Textarea id="msg" rows={5} required />
+
+        <div className="surface flex items-start gap-4 p-6">
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary"
+            aria-hidden
+          >
+            <MessagesSquare className="h-5 w-5" />
+          </span>
+          <div>
+            <h2 className="font-semibold">Product questions</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Submission, evaluation and reporting are covered in the{" "}
+              <Link to="/docs" className="text-primary underline underline-offset-4">
+                documentation
+              </Link>
+              . For partnership or event inquiries, mention your event dates and cohort size.
+            </p>
+          </div>
         </div>
-        <Button type="submit" className="w-full">
-          Send message
-        </Button>
-      </form>
+
+        <p className="text-center text-xs text-muted-foreground">
+          A contact form is on the way — until then, email reaches a real person.
+        </p>
+      </div>
     </MarketingLayout>
   );
 }

@@ -1,0 +1,477 @@
+/*
+ * Neon hero — the landing experience.
+ *
+ * One slow breathing loop (~8s) drives every layer through the same keyframes
+ * with per-element intensity bounds: the tube core, its bloom, the page wash
+ * and the wordmark halo rise and fall together. The page reads as a dark
+ * technical lab lit by one neon fixture — the neon is an accent, never the
+ * whole palette. All motion honours prefers-reduced-motion (static mid-dim
+ * state), and the mouse parallax (JS, in index.tsx) only runs for fine
+ * pointers without reduced motion.
+ */
+
+:root {
+  /* The one neon accent. Everything in the hero derives from it. */
+  --neon: #74e0ff;
+  --neon-line: rgba(116, 224, 255, 0.4);
+  --neon-faint: rgba(116, 224, 255, 0.12);
+  --neon-ink: #e9f5ff;
+  --neon-dim-ink: #9fb4c6;
+  --neon-base: #04070d;
+  --neon-base-2: #060b14;
+}
+
+/* ------------------------------------------------------------- page shell */
+
+.neon-page {
+  position: relative;
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  background:
+    radial-gradient(90% 45% at 50% -6%, rgba(116, 224, 255, 0.07) 0%, transparent 60%),
+    linear-gradient(180deg, var(--neon-base-2) 0%, var(--neon-base) 55%, #030509 100%);
+  color: var(--neon-ink);
+  font-family: "Sora", var(--font-sans, ui-sans-serif), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- nav */
+
+/* The cinematic header, floated over the full-screen hero. */
+.neon-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+/* ------------------------------------------------------------------- hero */
+
+.neon-hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+/* Parallax handle: JS writes --par-x/--par-y (-1..1) here; layers consume them. */
+.neon-hero {
+  --par-x: 0;
+  --par-y: 0;
+}
+
+/* Breathing: every layer shares the timing; only its intensity bounds differ. */
+@keyframes neon-breathe {
+  0%,
+  100% {
+    opacity: var(--neon-min, 0.2);
+  }
+  14% {
+    opacity: calc(var(--neon-min, 0.2) + (var(--neon-max, 1) - var(--neon-min, 0.2)) * 0.45);
+  }
+  30% {
+    opacity: var(--neon-max, 1);
+  }
+  46% {
+    opacity: calc(var(--neon-max, 1) * 0.92);
+  }
+  64% {
+    opacity: calc(var(--neon-min, 0.2) + (var(--neon-max, 1) - var(--neon-min, 0.2)) * 0.3);
+  }
+  82% {
+    opacity: var(--neon-min, 0.2);
+  }
+}
+
+/* Ambient wash: a very soft radial neon gradient under the top light. */
+.neon-hero__wash {
+  position: absolute;
+  inset: -6%;
+  z-index: -4;
+  pointer-events: none;
+  background:
+    radial-gradient(72% 52% at 50% -4%, rgba(116, 224, 255, 0.16) 0%, transparent 62%),
+    radial-gradient(110% 68% at 50% 0%, rgba(116, 224, 255, 0.05) 0%, transparent 70%);
+  --neon-min: 0.55;
+  --neon-max: 1;
+  animation: neon-breathe 8s ease-in-out infinite;
+  transform: translate(calc(var(--par-x) * 10px), calc(var(--par-y) * 6px));
+  will-change: opacity, transform;
+}
+
+/* The tube itself: a thin bright line spanning most of the viewport. */
+.neon-hero__tube {
+  position: absolute;
+  top: clamp(84px, 12vh, 132px);
+  left: 50%;
+  z-index: -2;
+  width: min(1240px, 92vw);
+  height: 2px;
+  pointer-events: none;
+  transform: translateX(calc(-50% + var(--par-x) * 7px));
+  will-change: transform;
+}
+
+.neon-hero__tube-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--neon) 10%,
+    #f2feff 50%,
+    var(--neon) 90%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 10px rgba(116, 224, 255, 0.9),
+    0 0 34px rgba(116, 224, 255, 0.5),
+    0 0 110px rgba(116, 224, 255, 0.28);
+  --neon-min: 0.42;
+  --neon-max: 1;
+  animation: neon-breathe 8s ease-in-out infinite;
+}
+
+/* Illumination under the tube: what actually lights the page. */
+.neon-hero__bloom {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: min(1500px, 108vw);
+  height: clamp(300px, 52vh, 620px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(
+    58% 92% at 50% -4%,
+    rgba(116, 224, 255, 0.2) 0%,
+    rgba(116, 224, 255, 0.07) 42%,
+    transparent 74%
+  );
+  --neon-min: 0.35;
+  --neon-max: 1;
+  animation: neon-breathe 8s ease-in-out infinite;
+}
+
+/* Halo behind the wordmark: the title visibly reacts to the illumination. */
+.neon-hero__halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -3;
+  width: min(980px, 96vw);
+  height: clamp(240px, 42vh, 460px);
+  transform: translate(calc(-50% + var(--par-x) * 14px), calc(-54% + var(--par-y) * 8px));
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(116, 224, 255, 0.14) 0%, transparent 72%);
+  --neon-min: 0.3;
+  --neon-max: 1;
+  animation: neon-breathe 8s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* Vignette keeps the composition contained and the edges calm. */
+.neon-hero__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    122% 92% at 50% 38%,
+    transparent 42%,
+    rgba(2, 4, 8, 0.5) 82%,
+    rgba(2, 4, 8, 0.78) 100%
+  );
+}
+
+/* Editorial grain: material, not noise. */
+.neon-hero__grain {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/* ------------------------------------------------------------------ body */
+
+.neon-hero__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(120px, 18vh, 200px) 20px clamp(56px, 9vh, 104px);
+  text-align: center;
+}
+
+.neon-hero__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.neon-hero__wordmark {
+  width: min(1080px, 94vw);
+  height: clamp(150px, 27vh, 280px);
+  margin-inline: auto;
+  color: var(--neon-ink);
+}
+
+.neon-hero__copy {
+  max-width: 560px;
+  margin-top: clamp(18px, 3vh, 34px);
+  color: var(--neon-dim-ink);
+  font-weight: 300;
+  font-size: clamp(14px, 1.1vw, 17px);
+  line-height: 1.65;
+}
+
+.neon-hero__copy strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--neon-ink);
+  font-weight: 400;
+  font-size: clamp(13px, 0.95vw, 15px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------- CTA */
+
+.neon-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: clamp(30px, 4.5vh, 52px);
+  padding: 15px 38px;
+  border: 1px solid var(--neon-line);
+  color: var(--neon-ink);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: rgba(116, 224, 255, 0.045);
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.neon-cta:hover {
+  border-color: rgba(116, 224, 255, 0.85);
+  background: rgba(116, 224, 255, 0.1);
+  box-shadow:
+    0 0 26px rgba(116, 224, 255, 0.22),
+    inset 0 0 20px rgba(116, 224, 255, 0.07);
+  transform: translateY(-1px);
+}
+
+.neon-cta:focus-visible {
+  outline: 2px solid rgba(116, 224, 255, 0.85);
+  outline-offset: 3px;
+}
+
+.neon-cta svg {
+  transition: transform 0.3s ease;
+}
+
+.neon-cta:hover svg {
+  transform: translateX(3px);
+}
+
+.neon-cta__hint {
+  display: block;
+  margin-top: 14px;
+  color: rgba(159, 180, 198, 0.66);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------ role strip */
+
+.neon-roles {
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(6, 11, 20, 0.9), var(--neon-base));
+  padding: clamp(44px, 7vh, 80px) 20px;
+}
+
+.neon-roles__inner {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 880px;
+  margin-inline: auto;
+}
+
+.neon-roles__eyebrow {
+  margin-bottom: 6px;
+  color: rgba(159, 180, 198, 0.72);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.neon-role {
+  display: block;
+  padding: 20px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.02);
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.neon-role:hover {
+  border-color: var(--neon-line);
+  background: rgba(116, 224, 255, 0.05);
+  box-shadow: 0 0 30px rgba(116, 224, 255, 0.1);
+}
+
+.neon-role:focus-visible {
+  outline: 2px solid rgba(116, 224, 255, 0.85);
+  outline-offset: 3px;
+}
+
+.neon-role__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--neon-ink);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.neon-role__desc {
+  margin-top: 8px;
+  color: var(--neon-dim-ink);
+  font-weight: 300;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.neon-role__arrow {
+  color: rgba(159, 180, 198, 0.7);
+  transition:
+    transform 0.3s ease,
+    color 0.3s ease;
+}
+
+.neon-role:hover .neon-role__arrow {
+  color: var(--neon);
+  transform: translateX(4px);
+}
+
+@media (min-width: 640px) {
+  .neon-roles__inner {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .neon-roles__eyebrow {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------------------------------------------------------------- footer */
+
+.neon-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: #030509;
+  padding: 22px 20px calc(22px + env(safe-area-inset-bottom));
+  color: rgba(159, 180, 198, 0.66);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.neon-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 26px;
+  text-align: center;
+}
+
+.neon-footer a {
+  color: rgba(159, 180, 198, 0.8);
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+
+.neon-footer a:hover {
+  color: var(--neon-ink);
+}
+
+.neon-footer__legal {
+  color: rgba(159, 180, 198, 0.5);
+  text-transform: none;
+  letter-spacing: 0.08em;
+}
+
+.neon-footer__legal a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-hero__wash,
+  .neon-hero__tube-core,
+  .neon-hero__bloom,
+  .neon-hero__halo {
+    animation: none;
+  }
+
+  .neon-hero__wash {
+    opacity: 0.8;
+  }
+
+  .neon-hero__tube-core {
+    opacity: 0.7;
+  }
+
+  .neon-hero__bloom {
+    opacity: 0.65;
+  }
+
+  .neon-hero__halo {
+    opacity: 0.6;
+  }
+
+  .neon-cta,
+  .neon-role,
+  .neon-role__arrow,
+  .neon-footer a {
+    transition-duration: 0.01ms;
+  }
+}

@@ -39,7 +39,7 @@ export interface SpotlightCardProps extends HTMLAttributes<HTMLDivElement> {
  */
 export function SpotlightCard({
   theme = "dark",
-  spotlightColor = "#3b82f6",
+  spotlightColor = "var(--primary)",
   intensity = 0.1,
   spotlightSize = 220,
   softness = 0.8,

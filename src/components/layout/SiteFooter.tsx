@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { Github } from "lucide-react";
 import { Logo } from "./Logo";
 
 export function SiteFooter() {
@@ -14,6 +13,9 @@ export function SiteFooter() {
           className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground"
           aria-label="Footer"
         >
+          <Link to="/docs" className="hover:text-foreground">
+            Documentation
+          </Link>
           <Link to="/about" className="hover:text-foreground">
             About
           </Link>
@@ -26,14 +28,6 @@ export function SiteFooter() {
           <Link to="/contact" className="hover:text-foreground">
             Contact
           </Link>
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 hover:text-foreground"
-          >
-            <Github className="h-4 w-4" /> GitHub
-          </a>
         </nav>
       </div>
       <p className="pb-8 text-center text-xs text-muted-foreground">© 2026 BuildLens</p>

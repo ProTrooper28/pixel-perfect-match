@@ -623,6 +623,104 @@ body.menu-open {
   margin-top: clamp(18px, 1.8vw, 28px);
 }
 
+/* Role switcher: two equal doors, active one lit. */
+
+.authRoles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: clamp(18px, 1.8vw, 26px);
+}
+
+.authRole {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dimmer);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: clamp(9px, 0.68vw, 11px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 11px 8px;
+  cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.authRole:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-dim);
+}
+
+.authRole.is-active {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.42);
+  color: #fff;
+}
+
+.authRole:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+/* Credential fields, in the same language as the card. */
+
+.authField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  text-align: left;
+}
+
+.authField__label {
+  font-family: var(--font-mono);
+  font-weight: 300;
+  font-size: clamp(9px, 0.66vw, 11px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+
+.authInput {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(13px, 0.9vw, 15px);
+  padding: 13px 14px;
+  outline: none;
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease;
+}
+
+.authInput::placeholder {
+  color: var(--text-dimmer);
+}
+
+.authInput:focus {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.authLink {
+  color: #fff;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 0.25s ease;
+}
+
+.authLink:hover {
+  color: var(--text-dim);
+}
+
 /* Pure black page background on cinematic pages */
 
 body:has(.hero),
@@ -668,6 +766,105 @@ body:has(.login-hero) {
   }
 }
 
+/* ---------- Role choice ---------- */
+
+/* The two doors into the product. Deliberate panels — same mono/uppercase
+   language as the buttons, but they read as a decision, not two loose CTAs. */
+
+.heroRoles {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1vw, 14px);
+  width: 100%;
+  margin-top: clamp(30px, 3.6vw, 60px);
+}
+
+.heroRole {
+  display: block;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  background: var(--fill-ghost);
+  padding: clamp(14px, 1.2vw, 20px) clamp(16px, 1.4vw, 22px);
+  cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.25s ease;
+}
+
+.heroRole:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.heroRole:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 3px;
+}
+
+.heroRole__eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 0.62vw, 11px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+}
+
+.heroRole__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: clamp(12px, 0.86vw, 15px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.heroRole__titleText {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.heroRole__icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.heroRole__arrow {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--text-dimmer);
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.heroRole:hover .heroRole__arrow {
+  transform: translateX(4px);
+  color: #fff;
+}
+
+.heroRole__desc {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(12px, 0.82vw, 14px);
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
 /* ---------- Short-height compress ---------- */
 
 @media (max-height: 640px) {
@@ -684,6 +881,16 @@ body:has(.login-hero) {
   .heroActions {
     margin-top: clamp(22px, 3vw, 40px);
     gap: 12px;
+  }
+  .heroRoles {
+    margin-top: clamp(18px, 2.4vw, 34px);
+    gap: 8px;
+  }
+  .heroRole {
+    padding: 11px 14px;
+  }
+  .heroRole__desc {
+    margin-top: 5px;
   }
   .btn {
     padding: clamp(13px, 1.4vw, 20px) 20px;

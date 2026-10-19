@@ -267,6 +267,82 @@ html[data-bg="bubbles"],
 }
 
 /* ============================================================
+   Accent tokens
+   ============================================================ */
+
+/* The selected environment also drives the product accent. Each preset
+   publishes its own `--primary` (and with it `--ring`, glows, focus halos and
+   every `primary`-derived utility), so buttons, badges, tabs, links, progress
+   bars and hover states harmonize with the canvas instead of staying blue.
+   Light mode gets a darker, ink-strength variant of the same hue so contrast
+   holds on white surfaces. Preset "minimal" keeps the default product accent
+   from styles.css — it has no colour identity of its own. */
+
+html[data-bg="graphite"] {
+  --primary: oklch(0.62 0.04 248);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="graphite"] {
+  --primary: oklch(0.46 0.045 248);
+}
+
+html[data-bg="ember"] {
+  --primary: oklch(0.62 0.175 40);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="ember"] {
+  --primary: oklch(0.52 0.16 40);
+}
+
+html[data-bg="prism"] {
+  --primary: oklch(0.62 0.19 285);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="prism"] {
+  --primary: oklch(0.52 0.19 285);
+}
+
+html[data-bg="celestial"] {
+  --primary: oklch(0.6 0.135 248);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="celestial"] {
+  --primary: oklch(0.47 0.125 248);
+}
+
+html[data-bg="neon"] {
+  --primary: oklch(0.63 0.2 350);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="neon"] {
+  --primary: oklch(0.53 0.19 350);
+}
+
+html[data-bg="marble"] {
+  --primary: oklch(0.58 0.16 277);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="marble"] {
+  --primary: oklch(0.46 0.155 277);
+}
+
+html[data-bg="linen"] {
+  --primary: oklch(0.62 0.105 75);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="linen"] {
+  --primary: oklch(0.48 0.095 75);
+}
+
+html[data-bg="bubbles"] {
+  --primary: oklch(0.6 0.115 220);
+  --primary-foreground: oklch(0.99 0 0);
+}
+html:not(.dark)[data-bg="bubbles"] {
+  --primary: oklch(0.46 0.1 220);
+}
+
+/* ============================================================
    Layer
    ============================================================ */
 

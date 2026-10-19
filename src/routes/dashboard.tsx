@@ -2,14 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { motion } from "framer-motion";
 import {
+  Archive,
   ArrowRight,
   CheckCircle2,
   Clock3,
   FileText,
   FolderGit2,
+  Gavel,
   History,
   Plus,
   TrendingUp,
+  UserRound,
   UserSearch,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +33,7 @@ import {
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectsQuery, useReportsQuery } from "@/hooks/useWorkspaceQueries";
+import type { UserRole } from "@/types/auth";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/toast-messages";
 
@@ -48,29 +52,68 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
-const cards = [
-  {
-    icon: FolderGit2,
-    title: "Review Project",
-    text: "Analyze a repository, live site and pitch materials. Verify every claim.",
-    cta: "Start Investigation",
-    to: "/review/project",
-  },
-  {
-    icon: UserSearch,
-    title: "Review Developer",
-    text: "Evaluate a candidate's resume, GitHub and portfolio with real evidence.",
-    cta: "Start Review",
-    to: "/review/developer",
-  },
-  {
-    icon: History,
-    title: "Previous Reports",
-    text: "Revisit, compare and share reports you've already generated.",
-    cta: "View Reports",
-    to: "/reports",
-  },
-] as const;
+interface QuickAction {
+  icon: typeof FileText;
+  title: string;
+  text: string;
+  cta: string;
+  to: string;
+}
+
+/**
+ * The dashboard opens on the work of the signed-in role: candidates get their
+ * own submission loop, managers get the administrative doors.
+ */
+function quickActions(role: UserRole): readonly QuickAction[] {
+  if (role === "manager") {
+    return [
+      {
+        icon: Archive,
+        title: "Hackathon Archives",
+        text: "Open a hackathon to review its candidates, projects, evaluations and rankings.",
+        cta: "Open Archives",
+        to: "/hackathons",
+      },
+      {
+        icon: Gavel,
+        title: "Evaluate Submissions",
+        text: "Score resumes and projects against your rubric and file your decisions.",
+        cta: "Start Evaluating",
+        to: "/evaluation",
+      },
+      {
+        icon: History,
+        title: "Report History",
+        text: "Revisit, compare and share the reports already generated in your workspace.",
+        cta: "View Reports",
+        to: "/reports",
+      },
+    ];
+  }
+  return [
+    {
+      icon: FolderGit2,
+      title: "Submit a Project",
+      text: "Share your repository, live site and deck — BuildLens gathers the evidence and scores it.",
+      cta: "New Submission",
+      to: "/review/project",
+    },
+    {
+      icon: History,
+      title: "Your Reports",
+      text: "Read the evaluation, score and results generated for your own submissions.",
+      cta: "View Reports",
+      to: "/reports",
+    },
+    {
+      icon: UserRound,
+      title: "Your Profile",
+      text: "Keep your name and organization up to date, and see which workspace you're in.",
+      cta: "Open Profile",
+      to: "/profile",
+    },
+  ];
+}
 
 const statusClass = (status: string): string => {
   if (status === "Completed") return "border-success/30 bg-success/10 text-success";
@@ -112,7 +155,6 @@ function StatCard({
   return (
     <SpotlightCard
       theme="dark"
-      spotlightColor="#3b82f6"
       intensity={0.1}
       spotlightSize={220}
       softness={0.8}
@@ -151,7 +193,8 @@ function StatCard({
 }
 
 function Dashboard() {
-  const { user, isLoading: authLoading, profile } = useAuth();
+  const { user, isLoading: authLoading, profile, role } = useAuth();
+  const cards = quickActions(role);
 
   // Cached in React Query: returning to the dashboard paints real rows on the
   // first frame and revalidates in the background instead of refetching.
@@ -208,7 +251,9 @@ function Dashboard() {
       subtitle={
         profile?.full_name
           ? `Welcome back, ${profile.full_name.split(" ")[0]}.`
-          : "What would you like to evaluate today?"
+          : role === "manager"
+            ? "Your hackathons, candidates and evaluations at a glance."
+            : "Your projects, evaluations and results at a glance."
       }
       crumbs={[{ label: "Dashboard" }]}
     >

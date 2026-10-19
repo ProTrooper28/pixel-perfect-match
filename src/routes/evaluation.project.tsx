@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { SubmissionListPage } from "@/components/evaluation/SubmissionListPage";
+import { RequireRole } from "@/components/auth/RequireRole";
 
 export const Route = createFileRoute("/evaluation/project")({
   head: () => ({
@@ -12,5 +13,9 @@ export const Route = createFileRoute("/evaluation/project")({
       },
     ],
   }),
-  component: () => <SubmissionListPage category="project" />,
+  component: () => (
+    <RequireRole role="manager">
+      <SubmissionListPage category="project" />
+    </RequireRole>
+  ),
 });

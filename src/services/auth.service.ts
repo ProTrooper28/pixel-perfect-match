@@ -21,6 +21,9 @@ export async function signUpWithEmail(params: SignUpWithEmailParams): Promise<Au
       emailRedirectTo: getRedirectTo(),
       data: {
         full_name: params.fullName,
+        // The role rides along in auth metadata: no schema change, and the DB
+        // trigger that seeds `profiles` ignores unknown metadata keys.
+        role: params.role,
         username: params.username ?? null,
         organization: params.organization ?? null,
       },

@@ -1,18 +1,37 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import "@/components/marketing/cinematic.css";
+import { ArrowRight, Gavel, UserRound } from "lucide-react";
 
-const VIDEO_URL =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260806_133255_956f653f-5d80-4b06-abd5-0f46c98b60fa.mp4";
-const POSTER_URL =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260806_132328_5f9029c8-218f-4489-82b6-29ff2849920e.png";
+import "@/components/marketing/cinematic.css";
+import "@/components/marketing/neon-hero.css";
+import TechText from "@/components/marketing/TechText";
 
 const NAV = [
-  { label: "Features", href: "#features", i: 0 },
-  { label: "Solutions", href: "#solutions", i: 1 },
-  { label: "Documentation", href: "#documentation", i: 2 },
-  { label: "About", href: "#about", i: 3 },
-] as const;
+  { label: "Features", to: "/features" as const, i: 0 },
+  { label: "How It Works", to: "/how-it-works" as const, i: 1 },
+  { label: "Documentation", to: "/docs" as const, i: 2 },
+  { label: "About", to: "/about" as const, i: 3 },
+];
+
+/**
+ * The two ways into the product. The hero carries one CTA ("Get Started" →
+ * sign-in, where the role is chosen before any account details); this strip
+ * keeps both roles visible on the landing page itself.
+ */
+const ROLES = [
+  {
+    role: "manager" as const,
+    title: "Continue as Project Manager",
+    description: "Manage hackathons, review candidates, evaluate projects and access reports.",
+    icon: Gavel,
+  },
+  {
+    role: "candidate" as const,
+    title: "Continue as Candidate",
+    description: "Submit your project, complete your profile and view your own evaluation results.",
+    icon: UserRound,
+  },
+];
 
 function useMobileMenu() {
   const [open, setOpen] = useState(false);
@@ -74,49 +93,77 @@ export const Route = createFileRoute("/")({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400&family=JetBrains+Mono:wght@300;400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap",
       },
-      { rel: "preconnect", href: "https://d8j0ntlcm91z4.cloudfront.net" },
     ],
   }),
-  component: LandingHero,
+  component: Landing,
 });
 
-function LandingHero() {
+function Landing() {
   const { open, setOpen, toggleRef } = useMobileMenu();
+  const heroRef = useRef<HTMLElement>(null);
+
+  /**
+   * Restrained mouse parallax: the wash, tube and halo drift a few pixels with
+   * the pointer. Fine pointers only, parked under reduced motion, and the loop
+   * stops as soon as the drift settles.
+   */
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    if (!window.matchMedia?.("(pointer: fine)").matches) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    let raf = 0;
+    let tx = 0;
+    let ty = 0;
+    let cx = 0;
+    let cy = 0;
+
+    const tick = () => {
+      cx += (tx - cx) * 0.06;
+      cy += (ty - cy) * 0.06;
+      hero.style.setProperty("--par-x", cx.toFixed(4));
+      hero.style.setProperty("--par-y", cy.toFixed(4));
+      if (Math.abs(tx - cx) < 0.001 && Math.abs(ty - cy) < 0.001) {
+        raf = 0;
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    const onMove = (e: PointerEvent) => {
+      const rect = hero.getBoundingClientRect();
+      tx = ((e.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2;
+      ty = ((e.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 2;
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    hero.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      hero.removeEventListener("pointermove", onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 
   return (
-    <div className="hero">
-      {/* Media layer */}
-      <div className="hero__media" aria-hidden>
-        <video
-          className="hero__video"
-          src={VIDEO_URL}
-          poster={POSTER_URL}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-        />
-        <div className="hero__scrim" />
-      </div>
-
-      {/* Row 1 — navbar (z 60, stays above the menu overlay) */}
-      <header className="hero__nav">
+    <div className="neon-page">
+      {/* Header — floats over the hero (z 60, stays above the menu overlay) */}
+      <header className="hero__nav neon-nav">
         <Link to="/" className="logo">
           BuildLens
         </Link>
         <div className="hero__navRight">
           <nav className="navLinks" aria-label="Main">
             {NAV.map((n) => (
-              <a key={n.href} href={n.href} className="navLink">
+              <Link key={n.to} to={n.to} className="navLink">
                 {n.label}
-              </a>
+              </Link>
             ))}
           </nav>
           <Link to="/login" className="navCta">
-            Get Started
+            Sign in
           </Link>
           <button
             ref={toggleRef}
@@ -134,46 +181,91 @@ function LandingHero() {
         </div>
       </header>
 
-      {/* Row 2 — right panel */}
-      <div className="hero__body">
-        <div className="panel">
-          <span className="chip">[ Technical Evaluation Platform ]</span>
-          <h1 className="heroTitle">BuildLens</h1>
-          <p className="heroTagline">Evidence-Based Technical Evaluation.</p>
-          <p className="heroDesc">
-            Analyze GitHub repositories, deployed applications, presentations, demo videos and
-            developer profiles to generate trustworthy technical reports backed by evidence instead
-            of assumptions.
+      {/* Hero — the neon lab */}
+      <section className="neon-hero" ref={heroRef}>
+        <div className="neon-hero__wash" aria-hidden />
+        <div className="neon-hero__tube" aria-hidden>
+          <span className="neon-hero__tube-core" />
+          <span className="neon-hero__bloom" />
+        </div>
+        <div className="neon-hero__halo" aria-hidden />
+        <div className="neon-hero__vignette" aria-hidden />
+        <div className="neon-hero__grain" aria-hidden />
+
+        <div className="neon-hero__body">
+          <h1 className="neon-hero__sr">BuildLens — evidence-based technical evaluation</h1>
+
+          <div className="neon-hero__wordmark">
+            <TechText
+              text="BuildLens"
+              fontWeight={600}
+              fontSize={168}
+              letterSpacing={-0.04}
+              reveal="letter"
+              dashLength={4}
+              dashGap={2}
+              specks={10}
+              selection
+              labels={false}
+              draggable
+              clickKick
+              intro="type"
+              introDuration={2}
+              guides={false}
+              sweep
+              color="currentColor"
+              accentColor="#74e0ff"
+              className="neon-hero__techtext"
+            />
+          </div>
+
+          <p className="neon-hero__copy">
+            <strong>Evidence-based technical evaluation.</strong>
+            Analyze projects, repositories, deployments, presentations and evidence to produce
+            trustworthy technical reports.
           </p>
 
-          <div className="heroActions">
-            <Link to="/login" className="btn btn--ghost">
-              Get Started
+          <div>
+            <Link to="/login" className="neon-cta">
+              Get Started <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
-            <Link to="/dashboard" className="btn btn--solid">
-              Continue as Guest
-            </Link>
+            <span className="neon-cta__hint">Choose your role in the next step</span>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Row 3 — legal */}
-      <footer className="hero__legal">
-        <p className="legalText">
-          By continuing, you agree to our <a href="#privacy-policy">Privacy Policy</a> and{" "}
-          <a href="#terms-of-service">Terms of Service</a>.
-        </p>
-        <nav className="legalLinks" aria-label="Footer">
-          <a href="#documentation" className="legalLink">
-            Documentation
-          </a>
-          <a href="#github" className="legalLink">
-            GitHub
-          </a>
-          <a href="#contact" className="legalLink">
-            Contact
-          </a>
-        </nav>
+      {/* Two ways in — the roles stay visible on the landing page itself */}
+      <section className="neon-roles" aria-label="Choose how to continue">
+        <div className="neon-roles__inner">
+          <p className="neon-roles__eyebrow">Two ways in</p>
+          {ROLES.map((r) => (
+            <Link key={r.role} to="/login" search={{ role: r.role }} className="neon-role">
+              <span className="neon-role__title">
+                <span className="inline-flex items-center gap-2.5">
+                  <r.icon className="h-4 w-4 text-[var(--neon)]" aria-hidden />
+                  {r.title}
+                </span>
+                <ArrowRight className="neon-role__arrow h-4 w-4" aria-hidden />
+              </span>
+              <span className="neon-role__desc">{r.description}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <footer className="neon-footer">
+        <div className="neon-footer__inner">
+          <p className="neon-footer__legal">
+            By continuing, you agree to our <Link to="/privacy">Privacy Policy</Link> and{" "}
+            <Link to="/terms">Terms of Service</Link>.
+          </p>
+          <nav aria-label="Footer">
+            <Link to="/docs">Documentation</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
+            <Link to="/contact">Contact</Link>
+          </nav>
+        </div>
       </footer>
 
       {/* Mobile menu overlay (z 50 — nav above, body below) */}
@@ -191,15 +283,15 @@ function LandingHero() {
       >
         <ul className="menu__inner">
           {NAV.map((n) => (
-            <li key={n.href}>
-              <a
-                href={n.href}
+            <li key={n.to}>
+              <Link
+                to={n.to}
                 className="menuLink"
                 style={{ ["--i" as string]: n.i }}
                 onClick={() => setOpen(false)}
               >
                 {n.label}
-              </a>
+              </Link>
             </li>
           ))}
           <li>
@@ -209,7 +301,7 @@ function LandingHero() {
               style={{ ["--i" as string]: 4 }}
               onClick={() => setOpen(false)}
             >
-              Get Started
+              Sign in
             </Link>
           </li>
         </ul>

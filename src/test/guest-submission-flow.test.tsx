@@ -67,7 +67,7 @@ describe("guest project submission flow", () => {
     const router = await renderRoute("/review/project");
 
     // No "sign in first" wall for guests.
-    await screen.findByText(/Submitting as a guest/i);
+    await screen.findByText(/Submitting without an account/i);
     expect(screen.queryByText(/Sign in to submit a project review/i)).toBeNull();
 
     fireEvent.change(screen.getByLabelText(/Project Name/i), {

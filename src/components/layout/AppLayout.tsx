@@ -8,6 +8,8 @@ import {
   Gavel,
   History,
   LayoutDashboard,
+  Trophy,
+  UserRound,
   UserSearch,
   LogOut,
   X,
@@ -27,14 +29,30 @@ import { usePrefetchWorkspace } from "@/hooks/useWorkspaceQueries";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AnimatedPage, EASE_OUT } from "@/components/motion/primitives";
 
-const links = [
+interface NavLink {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+}
+
+/** Candidates see a simple workspace: their projects, reports and profile. */
+const candidateLinks: readonly NavLink[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/hackathons", label: "Archives", icon: Archive },
-  { to: "/review/project", label: "Project", icon: FolderGit2 },
-  { to: "/review/developer", label: "Developer", icon: UserSearch },
+  { to: "/review/project", label: "Projects", icon: FolderGit2 },
+  { to: "/reports", label: "Reports", icon: History },
+  { to: "/profile", label: "Profile", icon: UserRound },
+];
+
+/** The project-manager side: every administrative area of the product. */
+const managerLinks: readonly NavLink[] = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/hackathons", label: "Hackathons", icon: Archive },
+  { to: "/review/developer", label: "Candidates", icon: UserSearch },
+  { to: "/review/project", label: "Projects", icon: FolderGit2 },
   { to: "/evaluation", label: "Evaluation", icon: Gavel },
   { to: "/reports", label: "Reports", icon: History },
-] as const;
+  { to: "/evaluation/leaderboard", label: "Rankings", icon: Trophy },
+];
 
 /** Which nav item owns the current path (report detail belongs to Reports). */
 function isLinkActive(pathname: string, to: string): boolean {
@@ -44,8 +62,12 @@ function isLinkActive(pathname: string, to: string): boolean {
   if (to === "/review/project") {
     return pathname.startsWith("/review/project") || pathname.startsWith("/progress");
   }
+  if (to === "/evaluation/leaderboard") return pathname.startsWith("/evaluation/leaderboard");
   if (to === "/evaluation")
-    return pathname === "/evaluation" || pathname.startsWith("/evaluation/");
+    return (
+      (pathname === "/evaluation" || pathname.startsWith("/evaluation/")) &&
+      !pathname.startsWith("/evaluation/leaderboard")
+    );
   return pathname === to;
 }
 
@@ -63,11 +85,12 @@ export function AppLayout({
   crumbs?: Crumb[] | undefined;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const prefetchWorkspace = usePrefetchWorkspace();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const links = role === "manager" ? managerLinks : candidateLinks;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -115,6 +138,7 @@ export function AppLayout({
                     <Link
                       key={l.to}
                       to={l.to}
+                      aria-label={l.label}
                       className={cn(
                         "group relative inline-flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 xl:px-3",
                         active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
@@ -134,7 +158,10 @@ export function AppLayout({
                           active && "text-primary",
                         )}
                       />
-                      <span className="relative">{l.label}</span>
+                      {/* Icons carry the label at lg; full labels return at xl. */}
+                      <span className="relative hidden xl:inline" aria-hidden>
+                        {l.label}
+                      </span>
                     </Link>
                   );
                 })}

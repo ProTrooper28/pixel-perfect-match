@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { CriteriaEditor } from "@/components/evaluation/CriteriaEditor";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { parseCategory } from "@/lib/evaluation/category";
 import type { EvaluationCategory } from "@/types/evaluation";
 
@@ -23,5 +24,9 @@ export const Route = createFileRoute("/evaluation/criteria")({
 
 function CriteriaPage() {
   const { category } = Route.useSearch();
-  return <CriteriaEditor category={category} />;
+  return (
+    <RequireRole role="manager">
+      <CriteriaEditor category={category} />
+    </RequireRole>
+  );
 }

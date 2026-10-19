@@ -15,6 +15,25 @@ describe("App routing", () => {
     expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);
   });
 
+  it("routes the marketing, auth and profile pages", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    const cases: { path: string; routeId: string }[] = [
+      { path: "/login", routeId: "/login" },
+      { path: "/onboarding", routeId: "/onboarding" },
+      { path: "/docs", routeId: "/docs" },
+      { path: "/profile", routeId: "/profile" },
+      { path: "/privacy", routeId: "/privacy" },
+      { path: "/terms", routeId: "/terms" },
+      { path: "/contact", routeId: "/contact" },
+      { path: "/about", routeId: "/about" },
+    ];
+
+    for (const testCase of cases) {
+      expect(router.matchRoutes(testCase.path).at(-1)?.routeId).toBe(testCase.routeId);
+    }
+  });
+
   it("routes every judging screen to its own page", () => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
 

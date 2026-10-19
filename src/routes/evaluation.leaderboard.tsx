@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { Leaderboard } from "@/components/evaluation/Leaderboard";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { parseCategory } from "@/lib/evaluation/category";
 import type { EvaluationCategory } from "@/types/evaluation";
 
@@ -22,5 +23,9 @@ export const Route = createFileRoute("/evaluation/leaderboard")({
 
 function LeaderboardPage() {
   const { category } = Route.useSearch();
-  return <Leaderboard category={category} />;
+  return (
+    <RequireRole role="manager">
+      <Leaderboard category={category} />
+    </RequireRole>
+  );
 }
