@@ -26,8 +26,10 @@ npm run dev
 ## Environment variables
 
 Secrets live only in `.env` / `.env.local` (gitignored — never commit them).
-`.env.example` at the repo root documents the names; `.env` and `.env.*` are
-ignored by Git, and only `.env.example` may be committed.
+`.env` and `.env.*` are ignored by Git, and only `.env.example` may be
+committed. The table below documents every variable name; a root
+`.env.example` containing these names (and nothing else) should be created
+from it.
 
 **Client-safe (browser-exposed via `VITE_` — public values only):**
 
