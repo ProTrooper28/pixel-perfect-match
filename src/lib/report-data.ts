@@ -168,6 +168,33 @@ export interface InnovationDetail {
   comparable: string | null;
 }
 
+export interface DocumentClaimsView {
+  summary: string | null;
+  problem: string[];
+  solution: string[];
+  features: string[];
+  technology: string[];
+  impact: string[];
+  method: string | null;
+}
+
+/** `report_data.document_analysis` — claims extracted from the submitted deck. */
+export interface DocumentAnalysisView {
+  status: string | null;
+  fileName: string | null;
+  fileType: string | null;
+  totalPages: number | null;
+  charsExtracted: number | null;
+  method: string | null;
+  ocrApplied: boolean | null;
+  error: string | null;
+  warnings: string[];
+  pages: { page: number; chars: number; source: string }[];
+  claims: DocumentClaimsView | null;
+  disclaimer: string | null;
+  extractedAt: string | null;
+}
+
 export interface ReportScoreSet {
   overall: number | null;
   evidence: number | null;
@@ -217,6 +244,7 @@ export type ReportSectionKey =
   | "testing"
   | "risks"
   | "recommendations"
+  | "documentAnalysis"
   | "overallScore";
 
 export interface ReportView {
@@ -269,6 +297,7 @@ export interface ReportView {
   repository: RepositoryDetail | null;
   website: WebsiteDetail | null;
   claims: Claim[];
+  documentAnalysis: DocumentAnalysisView | null;
   innovation: InnovationDetail | null;
   timeline: { time: string; event: string }[];
   interviewQuestions: string[];
@@ -427,6 +456,52 @@ function normalizeClaims(value: unknown): Claim[] {
     .filter((item): item is Claim => item !== null);
 }
 
+function normalizeDocumentClaims(value: unknown): DocumentClaimsView | null {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) return null;
+  const view: DocumentClaimsView = {
+    summary: asString(record["summary"]),
+    problem: asStringArray(record["problem"]),
+    solution: asStringArray(record["solution"]),
+    features: asStringArray(record["features"]),
+    technology: asStringArray(record["technology"]),
+    impact: asStringArray(record["impact"]),
+    method: asString(record["method"]),
+  };
+  const empty =
+    view.summary === null &&
+    view.problem.length === 0 &&
+    view.solution.length === 0 &&
+    view.features.length === 0 &&
+    view.technology.length === 0 &&
+    view.impact.length === 0;
+  return empty ? null : view;
+}
+
+function normalizeDocumentAnalysis(value: unknown): DocumentAnalysisView | null {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) return null;
+  return {
+    status: asString(record["status"]),
+    fileName: firstString(record["file_name"], record["fileName"]),
+    fileType: firstString(record["file_type"], record["fileType"]),
+    totalPages: firstNumber(record["total_pages"], record["totalPages"]),
+    charsExtracted: firstNumber(record["chars_extracted"], record["charsExtracted"]),
+    method: asString(record["method"]),
+    ocrApplied: asBoolean(record["ocr_applied"] ?? record["ocrApplied"]),
+    error: asString(record["error"]),
+    warnings: asStringArray(record["warnings"]),
+    pages: asRecordArray(record["pages"]).map((page) => ({
+      page: asNumber(page["page"]) ?? 0,
+      chars: asNumber(page["chars"]) ?? 0,
+      source: asString(page["source"]) ?? "none",
+    })),
+    claims: normalizeDocumentClaims(record["claims"]),
+    disclaimer: asString(record["disclaimer"]),
+    extractedAt: firstString(record["extracted_at"], record["extractedAt"]),
+  };
+}
+
 function normalizeTimeline(value: unknown): { time: string; event: string }[] {
   return asRecordArray(value)
     .map((item) => {
@@ -571,6 +646,12 @@ function normalizeAnalysis(value: unknown): ReportAnalysisMeta | null {
  */
 export function normalizeReportData(raw: unknown): ReportView {
   const data = asRecord(raw);
+  // The analysis pipeline nests everything the judge submitted under
+  // `submission`, so document analysis is looked up both there and at the top
+  // level (older/hand-built payloads).
+  const submissionRaw = asRecord(data["submission"]);
+  const documentAnalysisRaw =
+    data["document_analysis"] ?? data["documentAnalysis"] ?? submissionRaw["document_analysis"];
 
   const overviewRaw = asRecord(data["overview"]);
   const archRaw = asRecord(data["architecture"]);
@@ -758,6 +839,7 @@ export function normalizeReportData(raw: unknown): ReportView {
     repository,
     website,
     claims: normalizeClaims(data["features"] ?? data["claims"]),
+    documentAnalysis: normalizeDocumentAnalysis(documentAnalysisRaw),
     innovation,
     timeline: normalizeTimeline(data["timeline"]),
     interviewQuestions: asStringArray(data["interviewQuestions"] ?? data["interview_questions"]),
@@ -787,6 +869,7 @@ export function normalizeReportData(raw: unknown): ReportView {
       testing: firstString(testingRaw["summary"]) !== null,
       risks: risks.length > 0 || securityFindings.length > 0,
       recommendations: recommendations.length > 0,
+      documentAnalysis: normalizeDocumentAnalysis(documentAnalysisRaw) !== null,
       overallScore: scores.overall !== null,
     },
     hasPayloadData: Object.keys(data).length > 0,

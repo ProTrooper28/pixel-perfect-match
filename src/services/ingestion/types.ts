@@ -8,10 +8,14 @@
  * "unverified" signal (claims depending on it can never be marked verified).
  *
  * Today's services (kept deliberately separate, one file each):
- *   document-ocr — PPT/PDF text extraction (plugs in later; passes through
- *                  pre-extracted text today)
- *   web          — deployed-website fetch/scrape (plugs in later)
- *   github       — repository/README ingestion (plugs in later)
+ *   document-ocr — PPT/PDF text + claims, pre-extracted in the browser by
+ *                  src/services/document and passed through here
+ *   web          — the deployed site, fetched and reduced to readable facts
+ *   github       — the public repository via services/repository + the
+ *                  existing analyzers (same analysis the report pipeline runs)
+ *
+ * Each outcome also carries `facts`/`url`, which the unified evidence layer
+ * (services/evidence) turns into per-claim statuses.
  */
 
 import type { EvaluationSubmission } from "@/services/evaluation-agent/schema";
@@ -27,6 +31,10 @@ export interface IngestionOutcome {
   text: string | null;
   /** Why it is pending/failed — surfaced to the model as an evidence gap. */
   detail: string;
+  /** What was actually read, as short facts (never inferred): versions, files, status codes. */
+  facts?: string[];
+  /** The URL this source was read from, when there is one. */
+  url?: string | null;
 }
 
 export interface EvidenceIngestor {

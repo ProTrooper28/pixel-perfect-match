@@ -1,12 +1,14 @@
 /**
- * Website ingestion service (deployed site).
+ * Deployed-website ingestion service.
  *
- * Separate from the agent: fetching/rendering the live site is its own
- * service. Until it is plugged in, the source reports `pending`, so the model
- * must treat every claim about the deployed website as unverified.
+ * Fetches the submitted URL server-side and reduces it to readable facts
+ * (title, meta description, visible text, framework signals, interactive
+ * elements). Unreachable or blocked sites are explicit gaps, never negative
+ * findings about the project.
  */
 
 import type { EvaluationSubmission } from "@/services/evaluation-agent/schema";
+import { websiteEvidence } from "@/services/evidence/website-source";
 import type { EvidenceIngestor, IngestionOutcome } from "./types";
 
 export class WebsiteIngestor implements EvidenceIngestor {
@@ -14,24 +16,11 @@ export class WebsiteIngestor implements EvidenceIngestor {
   readonly label = "Website ingestion";
 
   isAvailable(): boolean {
-    return false;
+    return true;
   }
 
   async ingest(submission: EvaluationSubmission): Promise<IngestionOutcome> {
-    if (!submission.websiteUrl?.trim()) {
-      return {
-        kind: "website",
-        status: "pending",
-        text: null,
-        detail: "No deployed website URL was provided with the submission.",
-      };
-    }
-    return {
-      kind: "website",
-      status: "pending",
-      text: null,
-      detail: `Web ingestion is not connected yet — ${submission.websiteUrl} was not fetched, so claims about the deployed site are unverified.`,
-    };
+    return websiteEvidence(submission);
   }
 }
 

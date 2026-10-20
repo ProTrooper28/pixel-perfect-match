@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getEvaluationRun, resetEvaluationAgent, startEvaluation } from "@/services/evaluation-agent/agent";
+import {
+  getEvaluationRun,
+  resetEvaluationAgent,
+  startEvaluation,
+} from "@/services/evaluation-agent/agent";
 import {
   registerEvaluationModel,
   type EvaluationModelProvider,
@@ -22,6 +26,8 @@ import {
   resetEvidenceIngestors,
 } from "@/services/ingestion";
 import type { EvidenceIngestor } from "@/services/ingestion/types";
+import { registerEvidenceFetch } from "@/services/ingestion/http";
+import { createFetchMock } from "@/test/fixtures/repository";
 
 /**
  * The backend AI evaluation agent, end to end through the real pipeline:
@@ -63,6 +69,16 @@ const VALID_RESULT = {
       detail: "README claims could not be checked.",
     },
   ],
+  // The pipeline merges deterministic statuses for any claim the model omits,
+  // so an empty list is a valid (if lazy) model answer.
+  claimChecks: [],
+  finalSummary: {
+    projectUnderstanding: "A climate-risk dashboard for portfolio analysis.",
+    strongestEvidence: ["The description states the domain clearly"],
+    majorGaps: ["Repository could not be read"],
+    technicalAssessment: "Cannot be assessed without repository evidence.",
+    verdict: "Promising scope; evidence is incomplete.",
+  },
   confidence: 0.7,
 };
 
@@ -71,6 +87,7 @@ class FakeModel implements EvaluationModelProvider {
   readonly label = "Fake test model";
   readonly model = "fake-1";
   readonly prompts: string[] = [];
+  readonly systems: string[] = [];
   nextResponse: string = JSON.stringify(VALID_RESULT);
   delayMs = 0;
 
@@ -78,7 +95,8 @@ class FakeModel implements EvaluationModelProvider {
     return true;
   }
 
-  async request({ user }: { system: string; user: string }): Promise<string> {
+  async request({ system, user }: { system: string; user: string }): Promise<string> {
+    this.systems.push(system);
     this.prompts.push(user);
     if (this.delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.delayMs));
@@ -105,20 +123,21 @@ beforeEach(() => {
   registerEvaluationModel(model);
   resetEvidenceIngestors();
   resetEvaluationAgent();
+  // No test may hit the network: evidence sources 404 through this seam.
+  registerEvidenceFetch(createFetchMock(() => undefined).fetchImpl);
 });
 
 afterEach(() => {
   registerEvaluationModel(undefined);
   resetEvaluationRunStore();
   resetEvidenceIngestors();
+  registerEvidenceFetch(null);
   resetEvaluationAgent();
 });
 
 describe("startEvaluation input validation", () => {
   it("rejects an invalid submission with field-level issues", async () => {
-    const error = await startEvaluation({ submission: { name: "" } }).catch(
-      (e: unknown) => e,
-    );
+    const error = await startEvaluation({ submission: { name: "" } }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EvaluationValidationError);
     expect((error as EvaluationValidationError).issues.length).toBeGreaterThan(0);
   });
@@ -157,9 +176,7 @@ describe("evaluation run lifecycle", () => {
     expect(result.summary).toBeTruthy();
     expect(result.reasoning).toBeTruthy();
     expect(result.scores).toHaveLength(EVALUATION_DIMENSIONS.length);
-    expect(new Set(result.scores.map((s) => s.dimension))).toEqual(
-      new Set(EVALUATION_DIMENSIONS),
-    );
+    expect(new Set(result.scores.map((s) => s.dimension))).toEqual(new Set(EVALUATION_DIMENSIONS));
     expect(result.scores.every((s) => s.reasoning.length > 0)).toBe(true);
     expect(result.evidence.length).toBeGreaterThan(0);
     expect(result.evidence.some((e) => e.verified)).toBe(true);
@@ -238,8 +255,8 @@ describe("modular ingestion services", () => {
     const prompt = model.prompts[0];
     if (!prompt) throw new Error("model was never called");
     expect(prompt).toContain("README_MARKER_XYZ");
-    // Sources without a plugged-in service are explicit evidence gaps.
-    expect(prompt).toContain("Web ingestion is not connected yet");
+    // Sources that could not be read are explicit evidence gaps.
+    expect(prompt).toContain("HTTP 404");
     expect(prompt).toContain("No presentation document");
   }, 15000);
 
@@ -256,13 +273,80 @@ describe("modular ingestion services", () => {
     if (!prompt) throw new Error("model was never called");
     expect(prompt).toContain("SLIDE_MARKER");
   }, 15000);
+
+  it("hands document claims to the model and instructs it to treat them as unverified", async () => {
+    const started = await startEvaluation({
+      submission: {
+        ...SUBMISSION,
+        presentation: {
+          name: "AquaSense deck",
+          text: "AquaSense deck text with SLIDE_MARKER.",
+          claims: {
+            summary: "AquaSense is a smart irrigation platform.",
+            problem: ["Farmers lack real-time soil data"],
+            solution: ["IoT probes with an ML irrigation model"],
+            features: ["Real-time moisture map"],
+            technology: ["React", "TensorFlow"],
+            impact: ["30% water saving in field trials"],
+            method: "heuristic",
+          },
+        },
+      },
+    });
+    await getEvaluationRun(started.id, { wait: true });
+
+    const prompt = model.prompts[0];
+    if (!prompt) throw new Error("model was never called");
+    // The claims payload reaches the model…
+    expect(prompt).toContain("AquaSense is a smart irrigation platform.");
+    expect(prompt).toContain("30% water saving in field trials");
+    expect(prompt).toContain("TensorFlow");
+    // …and the system prompt mandates checking them against evidence.
+    const system = model.systems[0];
+    if (!system) throw new Error("model was never called");
+    expect(system).toContain("CLAIMS FROM THE SUBMITTED DOCUMENT");
+    expect(system).toContain("never as a fact");
+  }, 15000);
+
+  it("labels the document source as ingested with the claim count", async () => {
+    const documentIngestor = evidenceIngestors().find((entry) => entry.kind === "document");
+    if (!documentIngestor) throw new Error("document ingestor missing");
+    expect(documentIngestor.isAvailable()).toBe(true);
+
+    const outcome = await documentIngestor.ingest({
+      name: "AquaSense",
+      presentation: { claims: { problem: ["Soil data is invisible"], technology: ["React"] } },
+    });
+    expect(outcome.status).toBe("ingested");
+    expect(outcome.detail).toMatch(/2 claims/i);
+    expect(outcome.detail).toMatch(/UNVERIFIED/);
+  }, 15000);
+
+  it("still reports a gap when a presentation is referenced but unreadable", async () => {
+    const documentIngestor = evidenceIngestors().find((entry) => entry.kind === "document");
+    if (!documentIngestor) throw new Error("document ingestor missing");
+
+    const outcome = await documentIngestor.ingest({
+      name: "AquaSense",
+      presentation: { name: "scanned.pdf", text: "   " },
+    });
+    expect(outcome.status).toBe("pending");
+    expect(outcome.detail).toMatch(/no readable text/i);
+  }, 15000);
+
+  it("rejects claim lists beyond the schema limits", async () => {
+    const tooMany = Array.from({ length: 13 }, (_, i) => `Problem claim ${i}`);
+    await expect(
+      startEvaluation({
+        submission: { name: "X", presentation: { claims: { problem: tooMany } } },
+      }),
+    ).rejects.toThrow();
+  }, 15000);
 });
 
 describe("structured output schema", () => {
   it("accepts JSON wrapped in markdown fences", () => {
-    const parsed = parseStructuredEvaluation(
-      "```json\n" + JSON.stringify(VALID_RESULT) + "\n```",
-    );
+    const parsed = parseStructuredEvaluation("```json\n" + JSON.stringify(VALID_RESULT) + "\n```");
     expect(parsed.overallScore).toBe(78);
     expect(parsed.scores).toHaveLength(EVALUATION_DIMENSIONS.length);
   });
@@ -270,9 +354,7 @@ describe("structured output schema", () => {
   it("rejects out-of-range scores with the offending field", () => {
     let caught: unknown;
     try {
-      parseStructuredEvaluation(
-        JSON.stringify({ ...VALID_RESULT, overallScore: 140 }),
-      );
+      parseStructuredEvaluation(JSON.stringify({ ...VALID_RESULT, overallScore: 140 }));
     } catch (error) {
       caught = error;
     }

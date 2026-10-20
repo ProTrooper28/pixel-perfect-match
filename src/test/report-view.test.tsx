@@ -5,7 +5,7 @@ import {
   RouterProvider,
   type AnyRouter,
 } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { routeTree } from "@/routeTree.gen";
@@ -90,8 +90,10 @@ describe("report page", () => {
     expect(screen.getAllByText(/Completed/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Live report data/i)).toBeInTheDocument();
 
-    // Required sections exist.
+    // Required sections exist, including the derived AI verdict section.
     for (const title of [
+      "AI Verdict",
+      "AI Analysis & Pre-Assessment",
       "Executive Summary",
       "Project Overview",
       "Architecture / Technology Stack",
@@ -112,6 +114,57 @@ describe("report page", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Split the bundle")).toBeInTheDocument();
     expect(screen.getAllByText("Unbounded queue").length).toBeGreaterThan(0);
+  }, 20000);
+
+  it("shows deck claims under an unverified-claims disclaimer", async () => {
+    const report = createGuestReport({
+      type: "Project",
+      name: "AquaSense",
+      status: "Completed",
+      // Exactly the shape the analysis pipeline writes under `submission`.
+      report_data: {
+        executive_summary: "AquaSense couples IoT probes with an ML irrigation model.",
+        scores: { overall: 74 },
+        submission: {
+          document_analysis: {
+            status: "success",
+            file_name: "aquasense.pptx",
+            file_type: "pptx",
+            total_pages: 6,
+            chars_extracted: 1450,
+            method: "native",
+            ocr_applied: false,
+            error: null,
+            warnings: [],
+            pages: [{ page: 1, chars: 220, source: "native" }],
+            claims: {
+              summary: "AquaSense — Smart Irrigation",
+              problem: ["Farmers cannot see soil moisture in real time"],
+              solution: ["Low-cost IoT soil probes with an on-device ML model"],
+              features: ["Real-time moisture map"],
+              technology: ["React", "TensorFlow and Supabase"],
+              impact: ["We reduced water usage by 30% in field trials"],
+              method: "heuristic",
+            },
+            summary: "AquaSense — Smart Irrigation",
+            extracted_at: "2026-02-01T00:00:00.000Z",
+            disclaimer:
+              "Claims from the submitted document — these are the team's own assertions, not automatically verified facts. The evaluation pipeline compares them against the GitHub repository and the deployed website.",
+          },
+        },
+      },
+    });
+
+    await renderRoute(`/report/${report.id}`);
+
+    // The section is only rendered when the payload actually carries a deck.
+    const trigger = await screen.findByRole("button", { name: /Document Analysis/i });
+    fireEvent.click(trigger);
+
+    expect(await screen.findByText(/not automatically verified facts/i)).toBeInTheDocument();
+    expect(screen.getByText(/Farmers cannot see soil moisture in real time/)).toBeInTheDocument();
+    expect(screen.getByText(/We reduced water usage by 30%/)).toBeInTheDocument();
+    expect(screen.getByText(/aquasense\.pptx/)).toBeInTheDocument();
   }, 20000);
 
   it("does not present an in-progress report as finished", async () => {

@@ -36,6 +36,7 @@ import {
   type MaintainabilityAnalysis,
 } from "@/analysis/analyzers/maintainability.analyzer";
 import { computeScoreBreakdown, scoreBand, type DimensionKey } from "@/analysis/score";
+import { documentAnalysisPayloadOf } from "@/services/document";
 
 const TOTAL_BUDGET_MS = 45_000;
 
@@ -315,6 +316,9 @@ function buildReportData(context: PayloadContext): Json {
       notes: input.notes,
       website_url: input.websiteUrl,
       attachments: input.attachments,
+      // Claims extracted from the submitted deck — always labelled as claims
+      // (see payload disclaimer), never merged into verified findings.
+      document_analysis: documentAnalysisPayloadOf(input.document ?? null),
       created_at: input.createdAt,
     },
     analysis: {

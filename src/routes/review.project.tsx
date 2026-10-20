@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Globe, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { FileDrop, type FileDropStatus } from "@/components/FileDrop";
+import {
+  DocumentAnalysisPanel,
+  type DocumentAnalysisPhase,
+} from "@/components/review/DocumentAnalysisPanel";
 import { EASE_OUT } from "@/components/motion/primitives";
 import { SubmitButton, type SubmitButtonState } from "@/components/ui/submit-button";
 import { MovingBorder } from "@/components/ui/moving-border";
@@ -15,6 +19,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { createProjectForUser } from "@/services/project.service";
 import { createReportForUser } from "@/services/report.service";
 import { createGuestProject, createGuestReport } from "@/services/guest.service";
+import {
+  analyzeDocumentFile,
+  documentAnalysisPayloadOf,
+  type DocumentAnalysis,
+} from "@/services/document";
 import { notify } from "@/lib/toast-messages";
 import { startProjectAnalysis } from "@/analysis/runner";
 import { analysisPersistenceFor } from "@/analysis/persistence";
@@ -77,6 +86,10 @@ function ReviewProject() {
   const [deckStatus, setDeckStatus] = useState<FileDropStatus>("idle");
   const [videoStatus, setVideoStatus] = useState<FileDropStatus>("idle");
   const [deckFile, setDeckFile] = useState<File | null>(null);
+  const [docPhase, setDocPhase] = useState<DocumentAnalysisPhase>("idle");
+  const [docAnalysis, setDocAnalysis] = useState<DocumentAnalysis | null>(null);
+  const docPromiseRef = useRef<Promise<void> | null>(null);
+  const docAnalysisRef = useRef<DocumentAnalysis | null>(null);
   const [submitState, setSubmitState] = useState<SubmitButtonState>("idle");
   const errorResetTimer = useRef<number | null>(null);
   const busy = submitState === "submitting" || submitState === "processing";
@@ -111,11 +124,81 @@ function ReviewProject() {
     ? [{ name: deckFile.name, size: deckFile.size, type: deckFile.type }]
     : [];
 
+  /**
+   * Read the uploaded deck and extract the team's claims.
+   *
+   * Runs entirely in the browser and never rejects: an unreadable document
+   * lands in the `failed` state with a reason, and the submission keeps
+   * working — the file is still attached for the judges.
+   */
+  useEffect(() => {
+    if (!deckFile) {
+      docAnalysisRef.current = null;
+      setDocAnalysis(null);
+      setDocPhase("idle");
+      return;
+    }
+    let cancelled = false;
+    docAnalysisRef.current = null;
+    setDocAnalysis(null);
+    setDocPhase("extracting");
+    const analysis = analyzeDocumentFile(deckFile)
+      .then((result) => {
+        docAnalysisRef.current = result.extraction.status === "failed" ? null : result;
+        if (cancelled) return;
+        setDocAnalysis(result);
+        setDocPhase(result.extraction.status === "failed" ? "failed" : "done");
+      })
+      .catch((error: unknown) => {
+        // analyzeDocumentFile is designed not to throw; this is a safety net.
+        console.error("Document analysis failed", error);
+        if (cancelled) return;
+        setDocAnalysis(null);
+        setDocPhase("failed");
+      });
+    docPromiseRef.current = analysis;
+    return () => {
+      cancelled = true;
+    };
+  }, [deckFile]);
+
+  /** Persisted into report_data.document_analysis for the report + AI judge. */
+  const documentAnalysisPayload = useMemo(
+    () =>
+      documentAnalysisPayloadOf(
+        docAnalysis ??
+          (deckFile && docPhase === "failed"
+            ? {
+                extraction: {
+                  fileName: deckFile.name,
+                  fileSizeBytes: deckFile.size,
+                  kind: "unsupported",
+                  totalPages: 0,
+                  pages: [],
+                  fullText: "",
+                  method: "none",
+                  status: "failed",
+                  ocrAttempted: false,
+                  ocrApplied: false,
+                  error: "Document analysis could not complete.",
+                  warnings: [],
+                  extractedAt: new Date().toISOString(),
+                },
+                claims: null,
+              }
+            : null),
+      ),
+    [docAnalysis, deckFile, docPhase],
+  );
+
   const reportData: Json = {
     repo_url: repo.trim() || null,
     website_url: live.trim() || null,
     description: notes.trim() || null,
     attachments,
+    // JSON-safe payload (snake_case, flat) — same boundary cast the analysis
+    // service uses when writing report_data.
+    document_analysis: documentAnalysisPayload as Json | null,
   };
 
   /**
@@ -137,6 +220,7 @@ function ReviewProject() {
     notes: string | null;
     createdAt: string;
     isGuestSubmission: boolean;
+    document: DocumentAnalysis | null;
   }) => {
     const input: AnalysisInput = { ...submission, attachments };
     const run = startProjectAnalysis(
@@ -184,6 +268,15 @@ function ReviewProject() {
     // Indeterminate stages appear only if the request is genuinely slow.
     const stageTimer = window.setTimeout(() => setSubmitState("processing"), 1200);
 
+    // Give an in-flight document read a bounded chance to finish so its
+    // claims land in the report; extraction must never block submission.
+    if (docPhase === "extracting" && docPromiseRef.current) {
+      await Promise.race([
+        docPromiseRef.current,
+        new Promise((resolve) => window.setTimeout(resolve, 15_000)),
+      ]);
+    }
+
     try {
       // Guest submissions never reach Supabase (no session ⇒ no user id); they are
       // stored in this browser and rendered by the same pages as real rows.
@@ -213,6 +306,7 @@ function ReviewProject() {
           notes: project.description,
           createdAt: report.created_at,
           isGuestSubmission: true,
+          document: docAnalysisRef.current,
         });
 
         window.clearTimeout(stageTimer);
@@ -247,6 +341,7 @@ function ReviewProject() {
         notes: project.description,
         createdAt: report.created_at,
         isGuestSubmission: false,
+        document: docAnalysisRef.current,
       });
 
       window.clearTimeout(stageTimer);
@@ -374,9 +469,9 @@ function ReviewProject() {
             <FileDrop
               id="deck"
               label="Presentation Upload"
-              accept=".pdf,.ppt,.pptx,.key"
-              types={["pdf", "ppt", "pptx", "key"]}
-              hint="PDF, PPTX or Keynote · max 25 MB"
+              accept=".pdf,.pptx,.ppt,.key,.png,.jpg,.jpeg"
+              types={["pdf", "pptx", "ppt", "key", "png", "jpg", "jpeg"]}
+              hint="PDF, PPTX or slide image · max 25 MB"
               required
               onFile={setDeckFile}
               onStatusChange={setDeckStatus}
@@ -391,6 +486,9 @@ function ReviewProject() {
               onStatusChange={setVideoStatus}
             />
           </div>
+
+          {/* Document Analysis — extraction states + unverified claims */}
+          <DocumentAnalysisPanel phase={docPhase} analysis={docAnalysis} />
 
           {/* Notes */}
           <div className="space-y-2">

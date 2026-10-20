@@ -7,8 +7,13 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { SubmissionPreview } from "@/components/evaluation/SubmissionPreview";
 import { ScoringPanel } from "@/components/evaluation/ScoringPanel";
+import { EvidencePanel } from "@/components/evaluation/EvidenceSection";
+import {
+  AiVerdictPanel,
+  deriveVerdictFromSubmission,
+} from "@/components/evaluation/AiVerdictPanel";
+import { useEvidenceRun } from "@/hooks/useEvidenceRun";
 import { StatusPill } from "@/components/evaluation/shared";
-import { AiVerdictPanel, deriveVerdictFromSubmission } from "@/components/evaluation/AiVerdictPanel";
 import { CATEGORY_META } from "@/lib/evaluation/category";
 import { notify } from "@/lib/toast-messages";
 import { EASE_OUT } from "@/components/motion/primitives";
@@ -153,6 +158,9 @@ function SubmissionDetailView({
   // Same motion language as the rest of the app: forward slides in from the right,
   // back from the left, so list → detail and detail → list read as one move.
   const direction = useNavigationDirection();
+  // One evidence run per submission, shared by the evidence section and the
+  // compact summary beside the scoring criteria.
+  const evidence = useEvidenceRun(detail);
 
   const targets = useMemo(() => criterionTargets(criteriaSet), [criteriaSet]);
   const [scores, setScores] = useState<CriterionScore[]>(() => seedScores(targets, myRecord));
@@ -169,8 +177,8 @@ function SubmissionDetailView({
   const complete = isEvaluationComplete(scores, targets);
   const submitted = myRecord?.status === "evaluated" || myRecord?.status === "reviewed";
 
-  // Derive AI verdict from the submission's own fields (no LLM required).
-  // useMemo so it does not recompute on every score keystroke.
+  // Derived AI verdict from the submission's own fields (incoming feature) —
+  // memoised so it does not recompute on every score keystroke.
   const aiVerdict = useMemo(() => deriveVerdictFromSubmission(detail), [detail]);
 
   const backTo = category === "resume" ? "/evaluation/resume" : "/evaluation/project";
@@ -326,7 +334,17 @@ function SubmissionDetailView({
         transition={{ duration: 0.32, ease: EASE_OUT }}
         className="grid items-start gap-6 pb-24 lg:grid-cols-[minmax(0,1fr)_380px] lg:pb-0 xl:grid-cols-[minmax(0,1fr)_420px]"
       >
-        <SubmissionPreview detail={detail} />
+        <div className="min-w-0 space-y-5">
+          <SubmissionPreview detail={detail} />
+          <EvidencePanel
+            submission={detail}
+            phase={evidence.phase}
+            run={evidence.run}
+            error={evidence.error}
+            starting={evidence.starting}
+            onStart={evidence.start}
+          />
+        </div>
         <div id="score-panel" className="min-w-0 scroll-mt-24">
           <ScoringPanel
             targets={targets}
@@ -354,12 +372,20 @@ function SubmissionDetailView({
             onSubmit={() => void handleSubmit()}
             evaluators={evaluators}
             judgeId={judge.id}
+            evidence={
+              evidence.run?.result?.evidenceBundle
+                ? {
+                    counts: evidence.run.result.evidenceBundle.counts,
+                    total: evidence.run.result.evidenceBundle.claims.length,
+                  }
+                : null
+            }
             aiVerdict={aiVerdict}
           />
         </div>
       </motion.div>
 
-      {/* AI Verdict full panel — below the two-column grid */}
+      {/* AI verdict full panel — below the two-column grid */}
       <div className="mt-6 pb-6">
         <AiVerdictPanel verdict={aiVerdict} />
       </div>

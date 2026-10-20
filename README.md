@@ -51,3 +51,28 @@ from it.
 | `DOC_INGESTION_SERVICE_TOKEN` | Shared token for the ingestion microservice |
 
 The Python service under `doc-ingestion/` has its own `doc-ingestion/.env.example`.
+
+## Evidence layer (AI judge)
+
+The evaluation agent does not guess: it reads evidence and compares it with the
+team's claims.
+
+| Path | Role |
+| --- | --- |
+| `src/services/evidence/` | Unified layer: sources, deterministic claim comparison, bundle builder |
+| `src/services/ingestion/` | One ingestor per source (document, website, repository); adding a source means adding an ingestor |
+| `src/services/repository/` + `src/analysis/analyzers/` | The existing public-repo inspection the evidence layer reuses |
+| `src/services/evaluation-agent/` | Pipeline: collect → bundle → model → validate → persist (`/api/evaluations`) |
+| `src/components/evaluation/EvidenceSection.tsx` | Judge-facing "why": sources, claim statuses, final summary |
+
+Every claim gets one of four statuses — `supported`, `partially_supported`,
+`not_found`, `could_not_verify`. `not_found` means the readable sources were
+checked and did not show the claim; `could_not_verify` means no source could be
+read. Neither means the claim is false, and missing evidence is never scored as
+if it were. The submitted deck is a claim source, never a verification source.
+
+Runs persist through the agent store (memory in development, `ai_evaluation_runs`
+when `SUPABASE_SERVICE_ROLE_KEY` is set). The judge screen remembers the run id
+per submission, so refreshing re-attaches to the same run instead of re-running
+it, and runs created before evidence bundles still render their score and
+reasoning.

@@ -1,12 +1,17 @@
 /**
- * GitHub ingestion service (repository + README).
+ * GitHub repository ingestion service.
  *
- * Separate from the agent: cloning/parsing the repository is its own service.
- * Until it is plugged in, the source reports `pending`, so the model must
- * treat every claim about code quality, structure or the README as unverified.
+ * Delegates to the platform's existing repository inspection
+ * (`services/repository` + `src/analysis/analyzers`) through the evidence
+ * layer's repository source, so the AI judge reads the same repository facts
+ * the report pipeline already produces — no second GitHub implementation.
+ *
+ * A repository that cannot be read stays an explicit gap: the model is told the
+ * claims are unverified, never that they are false.
  */
 
 import type { EvaluationSubmission } from "@/services/evaluation-agent/schema";
+import { repositoryEvidence } from "@/services/evidence/repository-source";
 import type { EvidenceIngestor, IngestionOutcome } from "./types";
 
 export class GitHubIngestor implements EvidenceIngestor {
@@ -14,24 +19,13 @@ export class GitHubIngestor implements EvidenceIngestor {
   readonly label = "GitHub repository ingestion";
 
   isAvailable(): boolean {
-    return false;
+    // Public GitHub/GitLab REST is always reachable; a specific repository may
+    // still fail, which is reported per-submission as a gap.
+    return true;
   }
 
   async ingest(submission: EvaluationSubmission): Promise<IngestionOutcome> {
-    if (!submission.repoUrl?.trim()) {
-      return {
-        kind: "repository",
-        status: "pending",
-        text: null,
-        detail: "No GitHub repository URL was provided with the submission.",
-      };
-    }
-    return {
-      kind: "repository",
-      status: "pending",
-      text: null,
-      detail: `GitHub ingestion is not connected yet — ${submission.repoUrl} (README, code structure) was not fetched, so repository claims are unverified.`,
-    };
+    return repositoryEvidence(submission);
   }
 }
 

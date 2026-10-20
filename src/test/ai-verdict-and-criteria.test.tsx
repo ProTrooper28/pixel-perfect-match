@@ -12,14 +12,10 @@ import {
   AiVerdictPanel,
 } from "@/components/evaluation/AiVerdictPanel";
 import { defaultCriteriaSet } from "@/lib/evaluation/criteria";
-import {
-  criterionTargets,
-  awardedTotal,
-  targetsTotal,
-} from "@/lib/evaluation/scoring";
+import { criterionTargets, awardedTotal, targetsTotal } from "@/lib/evaluation/scoring";
 import { normalizeReportData } from "@/lib/report-data";
 import { LOCAL_JUDGE_ID, resetJudgingStorageState } from "@/services/judging/store";
-import type { SubmissionDetail, CriterionScore, EvaluationCriterion } from "@/types/evaluation";
+import type { ProjectDetail, CriterionScore, EvaluationCriterion } from "@/types/evaluation";
 
 describe("AI Verdict & Judge Criteria System", () => {
   beforeEach(() => {
@@ -144,14 +140,20 @@ describe("AI Verdict & Judge Criteria System", () => {
 
   describe("AI Verdict derivation & labeling", () => {
     it("derives AI verdict from submission details with all required sections", () => {
-      const demoSubmission: SubmissionDetail = {
+      const demoSubmission: ProjectDetail = {
         id: "project:buildlens",
         category: "project",
+        source: "workspace",
         name: "BuildLens Platform",
-        summary: "Automated analysis tool",
-        submittedAt: "2026-01-01T00:00:00.000Z",
+        subtitle: null,
         description: "An evidence-based project evaluation platform",
-        problemStatement: "Judging hackathons and candidates manually is subjective and error-prone",
+        tags: ["React", "TypeScript"],
+        yearsExperience: null,
+        projectCategory: "Submitted",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        team: null,
+        problemStatement:
+          "Judging hackathons and candidates manually is subjective and error-prone",
         solution: "Automated verification against GitHub repositories and live deployments",
         repoUrl: "https://github.com/example/buildlens",
         demoUrl: "https://buildlens.example.com",
@@ -160,7 +162,9 @@ describe("AI Verdict & Judge Criteria System", () => {
           { name: "Alice", role: "Frontend" },
           { name: "Bob", role: "Backend" },
         ],
-        media: [{ type: "screenshot", url: "https://example.com/shot.png", label: "App" }],
+        submitted: [],
+        presentationClaims: null,
+        media: [{ label: "App", url: "https://example.com/shot.png", kind: "image" }],
       };
 
       const verdict = deriveVerdictFromSubmission(demoSubmission);
@@ -179,7 +183,9 @@ describe("AI Verdict & Judge Criteria System", () => {
 
       // 4. Recommended areas for judge attention
       expect(verdict.judgeAttentionAreas.length).toBeGreaterThan(0);
-      expect(verdict.judgeAttentionAreas.some((a) => a.toLowerCase().includes("repository"))).toBe(true);
+      expect(verdict.judgeAttentionAreas.some((a) => a.toLowerCase().includes("repository"))).toBe(
+        true,
+      );
 
       // 5. High confidence due to completeness
       expect(verdict.confidence).toBe("high");
@@ -199,7 +205,7 @@ describe("AI Verdict & Judge Criteria System", () => {
           overall: 82,
           codeQuality: 85,
           security: 55, // Low security score
-          testing: 40,  // Low testing score
+          testing: 40, // Low testing score
         },
         risks: [
           {
@@ -233,11 +239,15 @@ describe("AI Verdict & Judge Criteria System", () => {
 
       // Key strengths
       expect(verdict.strengths.some((s) => s.includes("Real-time synchronization"))).toBe(true);
-      expect(verdict.strengths.some((s) => s.includes("Verified claim: Real-time updates"))).toBe(true);
+      expect(verdict.strengths.some((s) => s.includes("Verified claim: Real-time updates"))).toBe(
+        true,
+      );
 
       // Key weaknesses / risks summarize the findings and unverified claims
       expect(verdict.weaknesses.some((w) => w.includes("Unencrypted storage"))).toBe(true);
-      expect(verdict.weaknesses.some((w) => w.includes("Unverified claim: 100% test coverage"))).toBe(true);
+      expect(
+        verdict.weaknesses.some((w) => w.includes("Unverified claim: 100% test coverage")),
+      ).toBe(true);
       expect(verdict.weaknesses.some((w) => w.includes("Low testing score"))).toBe(true);
 
       // Evidence notes with status
@@ -249,7 +259,9 @@ describe("AI Verdict & Judge Criteria System", () => {
       // Recommended areas for judge attention
       expect(verdict.judgeAttentionAreas.some((a) => a.includes("Unencrypted storage"))).toBe(true);
       expect(verdict.judgeAttentionAreas.some((a) => a.includes("100% test coverage"))).toBe(true);
-      expect(verdict.judgeAttentionAreas.some((a) => a.includes("How is token refresh handled"))).toBe(true);
+      expect(
+        verdict.judgeAttentionAreas.some((a) => a.includes("How is token refresh handled")),
+      ).toBe(true);
     });
 
     it("renders the AI Verdict panel with explicit AI-analysis disclaimer", () => {
@@ -259,7 +271,11 @@ describe("AI Verdict & Judge Criteria System", () => {
         weaknesses: ["Missing rate limiter on API"],
         evidenceNotes: [
           { claim: "Repository URL", status: "verified" as const, note: "Found 45 commits" },
-          { claim: "End-to-end tests", status: "missing" as const, note: "No Cypress/Playwright files" },
+          {
+            claim: "End-to-end tests",
+            status: "missing" as const,
+            note: "No Cypress/Playwright files",
+          },
         ],
         judgeAttentionAreas: ["Check API security under concurrent load"],
         confidence: "medium" as const,
@@ -276,7 +292,9 @@ describe("AI Verdict & Judge Criteria System", () => {
 
       // Clear AI disclaimer (Requirement 7)
       expect(screen.getByText(/AI analysis only/i)).toBeInTheDocument();
-      expect(screen.getByText(/this is not a score and does not replace your judgment/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/this is not a score and does not replace your judgment/i),
+      ).toBeInTheDocument();
 
       // Sections
       expect(screen.getByText("Solid prototype with complete repository.")).toBeInTheDocument();

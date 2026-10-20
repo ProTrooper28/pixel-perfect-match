@@ -2,6 +2,7 @@ import { normalizeReportData } from "@/lib/report-data";
 import { DEMO_PROJECTS, DEMO_RESUMES } from "@/lib/evaluation/demo-cohort";
 import type {
   EvaluationCategory,
+  PresentationClaims,
   ProjectDetail,
   ResumeDetail,
   SubmissionDetail,
@@ -288,6 +289,7 @@ async function projectFromRow(
   let techStack: string[] = [];
   let summary: string | null = null;
   let solution: string | null = null;
+  let presentationClaims: PresentationClaims | null = null;
 
   if (viewer.userId) {
     try {
@@ -300,10 +302,23 @@ async function projectFromRow(
           techStack = view.overview.techStack;
           summary = view.executiveSummary ?? view.overview.summary;
           solution = view.architecture.summary;
+          presentationClaims = deckClaims(view.documentAnalysis?.claims ?? null);
         }
       }
     } catch {
       /* detail still renders from the project row alone */
+    }
+  }
+
+  // Guest submissions store their report in this browser, not in Supabase.
+  if (viewer.isGuest && presentationClaims === null) {
+    const linked = listGuestReports().find((report) => report.project_id === projectId);
+    if (linked) {
+      const view = normalizeReportData(linked.report_data);
+      techStack = techStack.length > 0 ? techStack : view.overview.techStack;
+      summary = summary ?? view.executiveSummary ?? view.overview.summary;
+      solution = solution ?? view.architecture.summary;
+      presentationClaims = deckClaims(view.documentAnalysis?.claims ?? null);
     }
   }
 
@@ -338,5 +353,30 @@ async function projectFromRow(
       { label: "Status", value: statusLabel[String(project.status)] ?? "Unknown" },
       { label: "Report", value: summary ? "Attached" : "None attached" },
     ],
+    presentationClaims,
+  };
+}
+
+/** Report deck claims → the judge-facing claim shape (empty = no deck claims). */
+function deckClaims(
+  claims: {
+    summary: string | null;
+    problem: string[];
+    solution: string[];
+    features: string[];
+    technology: string[];
+    impact: string[];
+    method: string | null;
+  } | null,
+): PresentationClaims | null {
+  if (!claims) return null;
+  return {
+    summary: claims.summary,
+    problem: claims.problem,
+    solution: claims.solution,
+    features: claims.features,
+    technology: claims.technology,
+    impact: claims.impact,
+    method: claims.method === "llm" ? "llm" : "heuristic",
   };
 }

@@ -131,7 +131,11 @@ export function deriveVerdictFromSubmission(detail: SubmissionDetail): AiVerdict
 
   if (project.description) {
     strengths.push("Project description provided");
-    evidenceNotes.push({ claim: "Project purpose", status: "verified", note: "Description present in submission" });
+    evidenceNotes.push({
+      claim: "Project purpose",
+      status: "verified",
+      note: "Description present in submission",
+    });
   } else {
     weaknesses.push("No project description");
     judgeAttentionAreas.push("Ask team to clarify what the project does");
@@ -139,7 +143,11 @@ export function deriveVerdictFromSubmission(detail: SubmissionDetail): AiVerdict
 
   if (project.problemStatement) {
     strengths.push("Problem statement articulated");
-    evidenceNotes.push({ claim: "Problem definition", status: "verified", note: "Problem statement provided in submission" });
+    evidenceNotes.push({
+      claim: "Problem definition",
+      status: "verified",
+      note: "Problem statement provided in submission",
+    });
   } else {
     weaknesses.push("No problem statement - unclear what need the project addresses");
     judgeAttentionAreas.push("Verify the team understands the problem they are solving");
@@ -159,7 +167,9 @@ export function deriveVerdictFromSubmission(detail: SubmissionDetail): AiVerdict
       status: "unverified",
       note: "Link provided but content not inspected - judge should check repo quality",
     });
-    judgeAttentionAreas.push("Review repository: code quality, commit history, README completeness");
+    judgeAttentionAreas.push(
+      "Review repository: code quality, commit history, README completeness",
+    );
   } else {
     weaknesses.push("No repository URL - code cannot be verified");
     evidenceNotes.push({
@@ -292,7 +302,9 @@ export function deriveVerdictFromReport(view: ReportView): AiVerdictData {
     strengths.push(`${view.architecture.decisions.length} documented architecture decision(s)`);
   }
   if (strengths.length === 0 && view.overview.techStack.length > 0) {
-    strengths.push(`Documented technology stack: ${view.overview.techStack.slice(0, 4).join(", ")}`);
+    strengths.push(
+      `Documented technology stack: ${view.overview.techStack.slice(0, 4).join(", ")}`,
+    );
   }
 
   // 3. Weaknesses / Risks
@@ -302,7 +314,9 @@ export function deriveVerdictFromReport(view: ReportView): AiVerdictData {
   }
   for (const claim of view.claims) {
     if (!claim.verified) {
-      weaknesses.push(`Unverified claim: ${claim.claim}${claim.evidence ? ` (${claim.evidence})` : ""}`);
+      weaknesses.push(
+        `Unverified claim: ${claim.claim}${claim.evidence ? ` (${claim.evidence})` : ""}`,
+      );
     }
   }
   if (view.scores.testing !== null && view.scores.testing < 50) {
@@ -370,7 +384,8 @@ export function deriveVerdictFromReport(view: ReportView): AiVerdictData {
     if (jq && !judgeAttentionAreas.includes(jq)) judgeAttentionAreas.push(jq);
   }
   for (const iq of view.interviewQuestions.slice(0, 3)) {
-    if (iq && !judgeAttentionAreas.includes(iq)) judgeAttentionAreas.push(`Interview prompt: ${iq}`);
+    if (iq && !judgeAttentionAreas.includes(iq))
+      judgeAttentionAreas.push(`Interview prompt: ${iq}`);
   }
   for (const risk of view.risks.filter((r) => r.severity === "critical" || r.severity === "high")) {
     judgeAttentionAreas.push(
@@ -384,7 +399,9 @@ export function deriveVerdictFromReport(view: ReportView): AiVerdictData {
     judgeAttentionAreas.push(`Recommendation check: ${rec.title}`);
   }
   if (judgeAttentionAreas.length === 0) {
-    judgeAttentionAreas.push("Review code architecture and evaluate against category rubric criteria.");
+    judgeAttentionAreas.push(
+      "Review code architecture and evaluate against category rubric criteria.",
+    );
   }
 
   const confidence: "high" | "medium" | "low" =
@@ -409,7 +426,10 @@ export function deriveVerdictFromReport(view: ReportView): AiVerdictData {
 const CONFIDENCE_META = {
   high: { label: "High confidence", className: "border-success/30 bg-success/10 text-success" },
   medium: { label: "Medium confidence", className: "border-warning/30 bg-warning/10 text-warning" },
-  low: { label: "Low confidence", className: "border-destructive/30 bg-destructive/10 text-destructive" },
+  low: {
+    label: "Low confidence",
+    className: "border-destructive/30 bg-destructive/10 text-destructive",
+  },
 };
 
 interface AiVerdictPanelProps {
@@ -432,17 +452,23 @@ export function AiVerdictPanel({ verdict, title = "AI Verdict", className }: AiV
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className={cn("text-[10px] font-normal", confidenceMeta.className)}>
+            <Badge
+              variant="outline"
+              className={cn("text-[10px] font-normal", confidenceMeta.className)}
+            >
               {confidenceMeta.label}
             </Badge>
             <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
-              {verdict.analysisSource === "ai_model" ? (verdict.modelLabel ?? "AI model") : "Submission analysis"}
+              {verdict.analysisSource === "ai_model"
+                ? (verdict.modelLabel ?? "AI model")
+                : "Submission analysis"}
             </Badge>
           </div>
         </div>
         <p className="rounded-md border border-primary/15 bg-primary/[0.06] px-2.5 py-1.5 text-[11px] leading-snug text-muted-foreground">
-          <strong className="text-foreground">AI analysis only</strong> - this is not a score and does not
-          replace your judgment. Use it to guide your evaluation, then score each criterion independently.
+          <strong className="text-foreground">AI analysis only</strong> - this is not a score and
+          does not replace your judgment. Use it to guide your evaluation, then score each criterion
+          independently.
         </p>
       </CardHeader>
 
@@ -502,13 +528,18 @@ export function AiVerdictPanel({ verdict, title = "AI Verdict", className }: AiV
             </div>
             <ul className="space-y-2">
               {verdict.evidenceNotes.map((note, i) => (
-                <li key={`evidence-${i}`} className="rounded-md border border-border/60 bg-background/40 px-2.5 py-2">
+                <li
+                  key={`evidence-${i}`}
+                  className="rounded-md border border-border/60 bg-background/40 px-2.5 py-2"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-xs font-medium">{note.claim}</span>
                     <EvidenceStatusBadge status={note.status} />
                   </div>
                   {note.note && (
-                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{note.note}</p>
+                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                      {note.note}
+                    </p>
                   )}
                 </li>
               ))}
@@ -538,8 +569,8 @@ export function AiVerdictPanel({ verdict, title = "AI Verdict", className }: AiV
 
         <p className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground/70">
           <Info className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-          AI analysis is derived from the submission fields. It surfaces gaps and inconsistencies to guide
-          your evaluation - the final score and recommendation are entirely your decision.
+          AI analysis is derived from the submission fields. It surfaces gaps and inconsistencies to
+          guide your evaluation - the final score and recommendation are entirely your decision.
         </p>
       </CardContent>
     </Card>
@@ -549,38 +580,60 @@ export function AiVerdictPanel({ verdict, title = "AI Verdict", className }: AiV
 function EvidenceStatusBadge({ status }: { status: EvidenceNote["status"] }) {
   if (status === "verified") {
     return (
-      <Badge variant="outline" className="shrink-0 border-success/30 bg-success/10 text-[10px] font-normal text-success">
+      <Badge
+        variant="outline"
+        className="shrink-0 border-success/30 bg-success/10 text-[10px] font-normal text-success"
+      >
         Verified
       </Badge>
     );
   }
   if (status === "missing") {
     return (
-      <Badge variant="outline" className="shrink-0 border-destructive/30 bg-destructive/10 text-[10px] font-normal text-destructive">
+      <Badge
+        variant="outline"
+        className="shrink-0 border-destructive/30 bg-destructive/10 text-[10px] font-normal text-destructive"
+      >
         Missing
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="shrink-0 border-warning/30 bg-warning/10 text-[10px] font-normal text-warning">
+    <Badge
+      variant="outline"
+      className="shrink-0 border-warning/30 bg-warning/10 text-[10px] font-normal text-warning"
+    >
       Unverified
     </Badge>
   );
 }
 
 /** Compact version for use inside the ScoringPanel sidebar. */
-export function AiVerdictCompact({ verdict, className }: { verdict: AiVerdictData; className?: string }) {
+export function AiVerdictCompact({
+  verdict,
+  className,
+}: {
+  verdict: AiVerdictData;
+  className?: string;
+}) {
   const confidenceMeta = CONFIDENCE_META[verdict.confidence];
   return (
-    <div className={cn("rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2.5", className)}>
+    <div
+      className={cn("rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2.5", className)}
+    >
       <div className="flex items-center gap-2">
         <Bot className="h-3.5 w-3.5 text-primary/70" aria-hidden />
         <span className="text-xs font-medium">AI Pre-Assessment</span>
-        <Badge variant="outline" className={cn("ml-auto text-[10px] font-normal", confidenceMeta.className)}>
+        <Badge
+          variant="outline"
+          className={cn("ml-auto text-[10px] font-normal", confidenceMeta.className)}
+        >
           {confidenceMeta.label}
         </Badge>
       </div>
-      <p className="mt-1.5 text-[11px] leading-snug text-foreground/80">{verdict.overallAssessment}</p>
+      <p className="mt-1.5 text-[11px] leading-snug text-foreground/80">
+        {verdict.overallAssessment}
+      </p>
       {verdict.judgeAttentionAreas.length > 0 && (
         <div className="mt-2.5">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -594,25 +647,42 @@ export function AiVerdictCompact({ verdict, className }: { verdict: AiVerdictDat
               </li>
             ))}
             {verdict.judgeAttentionAreas.length > 3 && (
-              <li className="text-[10px] text-muted-foreground">+{verdict.judgeAttentionAreas.length - 3} more</li>
+              <li className="text-[10px] text-muted-foreground">
+                +{verdict.judgeAttentionAreas.length - 3} more
+              </li>
             )}
           </ul>
         </div>
       )}
-      <p className="mt-2.5 text-[10px] text-muted-foreground/70">AI analysis only - not a score or final decision.</p>
+      <p className="mt-2.5 text-[10px] text-muted-foreground/70">
+        AI analysis only - not a score or final decision.
+      </p>
     </div>
   );
 }
 
 /** Inline teaser for inside the ScoringPanel (summary counts only). */
-export function AiVerdictInline({ verdict, className }: { verdict: AiVerdictData; className?: string }) {
+export function AiVerdictInline({
+  verdict,
+  className,
+}: {
+  verdict: AiVerdictData;
+  className?: string;
+}) {
   return (
-    <div className={cn("rounded-lg border border-dashed border-primary/30 bg-primary/[0.03] px-3 py-2.5", className)}>
+    <div
+      className={cn(
+        "rounded-lg border border-dashed border-primary/30 bg-primary/[0.03] px-3 py-2.5",
+        className,
+      )}
+    >
       <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <Search className="h-3.5 w-3.5" aria-hidden />
         AI submission analysis
         <Badge variant="outline" className="ml-auto text-[10px] font-normal">
-          {verdict.analysisSource === "ai_model" ? (verdict.modelLabel ?? "AI model") : "Auto-derived"}
+          {verdict.analysisSource === "ai_model"
+            ? (verdict.modelLabel ?? "AI model")
+            : "Auto-derived"}
         </Badge>
       </div>
       <p className="mt-1 text-[11px] font-medium text-foreground/80">
@@ -621,8 +691,9 @@ export function AiVerdictInline({ verdict, className }: { verdict: AiVerdictData
       <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
         {verdict.strengths.length} strength{verdict.strengths.length !== 1 ? "s" : ""},{" "}
         {verdict.weaknesses.length} weakness{verdict.weaknesses.length !== 1 ? "es" : ""},{" "}
-        {verdict.judgeAttentionAreas.length} attention area{verdict.judgeAttentionAreas.length !== 1 ? "s" : ""}.
-        See the full AI assessment below the scoring panel.
+        {verdict.judgeAttentionAreas.length} attention area
+        {verdict.judgeAttentionAreas.length !== 1 ? "s" : ""}. See the full AI assessment below the
+        scoring panel.
       </p>
     </div>
   );

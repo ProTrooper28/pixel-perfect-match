@@ -220,6 +220,23 @@ export interface ProjectTeamMember {
   role: string | null;
 }
 
+/**
+ * Claims the team made in their submitted deck (PPT/PDF).
+ *
+ * Carried on the project detail so the evidence run can compare them with the
+ * repository and deployed site. They are claims, never facts — every consumer
+ * labels them that way.
+ */
+export interface PresentationClaims {
+  summary?: string | null;
+  problem?: string[];
+  solution?: string[];
+  features?: string[];
+  technology?: string[];
+  impact?: string[];
+  method?: "heuristic" | "llm";
+}
+
 export interface ProjectDetail extends SubmissionSummary {
   category: "project";
   team: string | null;
@@ -231,6 +248,8 @@ export interface ProjectDetail extends SubmissionSummary {
   media: { label: string; url: string | null; kind: "image" | "video" | "document" }[];
   teamMembers: ProjectTeamMember[];
   submitted: { label: string; value: string }[];
+  /** Deck claims extracted from the attached report, when it carried a deck. */
+  presentationClaims: PresentationClaims | null;
 }
 
 export type SubmissionDetail = ResumeDetail | ProjectDetail;

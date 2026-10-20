@@ -21,21 +21,17 @@
 
 import { z } from "zod";
 
+import { CLAIM_EVIDENCE_STATUSES, type EvidenceBundle } from "@/services/evidence/types";
+
 /* ------------------------------------------------------------------ status */
 
-export const EVALUATION_RUN_STATUSES = [
-  "pending",
-  "processing",
-  "completed",
-  "failed",
-] as const;
+export const EVALUATION_RUN_STATUSES = ["pending", "processing", "completed", "failed"] as const;
 
 export type EvaluationRunStatus = (typeof EVALUATION_RUN_STATUSES)[number];
 
 export function isEvaluationRunStatus(value: unknown): value is EvaluationRunStatus {
   return (
-    typeof value === "string" &&
-    (EVALUATION_RUN_STATUSES as readonly string[]).includes(value)
+    typeof value === "string" && (EVALUATION_RUN_STATUSES as readonly string[]).includes(value)
   );
 }
 
@@ -65,6 +61,24 @@ export const EvaluationSubmissionSchema = z.object({
       name: z.string().max(400).optional(),
       /** Pre-extracted slide/document text (OCR service fills this later). */
       text: z.string().max(120000).optional().nullable(),
+      /**
+       * Claims extracted from the submitted document (problem, solution,
+       * features, technology, impact). These are the team's own assertions —
+       * the model must treat them as UNVERIFIED claims to check against the
+       * repository/website evidence, never as facts.
+       */
+      claims: z
+        .object({
+          summary: z.string().max(2000).optional().nullable(),
+          problem: z.array(z.string().max(600)).max(12).optional(),
+          solution: z.array(z.string().max(600)).max(12).optional(),
+          features: z.array(z.string().max(600)).max(12).optional(),
+          technology: z.array(z.string().max(120)).max(24).optional(),
+          impact: z.array(z.string().max(600)).max(12).optional(),
+          method: z.enum(["heuristic", "llm"]).optional(),
+        })
+        .optional()
+        .nullable(),
     })
     .optional()
     .nullable(),
@@ -136,6 +150,42 @@ export const RedFlagSchema = z.object({
 });
 export type RedFlag = z.infer<typeof RedFlagSchema>;
 
+/**
+ * The model's answer for ONE claim from the evidence bundle.
+ *
+ * Deliberately the same four statuses the deterministic comparison uses, so the
+ * UI, the judge and the model cannot drift apart on what "unverified" means.
+ */
+export const ClaimCheckResultSchema = z.object({
+  /** The bundle's claim id (`deck.problem.0`, `submission.technology.1`, …). */
+  id: z.string().min(1).max(120),
+  status: z.enum(CLAIM_EVIDENCE_STATUSES),
+  /** Why — must reference the evidence (or its absence), not the claim itself. */
+  explanation: z.string().min(1).max(1200),
+});
+export type ClaimCheckResult = z.infer<typeof ClaimCheckResultSchema>;
+
+/**
+ * The concise final evaluation summary.
+ *
+ * Separate fields (not one blob) because each answers a different judge
+ * question: what is this project, what backs it, what is missing, how good is
+ * the engineering, and what is the verdict.
+ */
+export const FinalSummarySchema = z.object({
+  /** What the project is and does, in the team's own terms. */
+  projectUnderstanding: z.string().min(1).max(4000),
+  /** Concrete, evidence-backed strengths (quote what was actually read). */
+  strongestEvidence: z.array(z.string().min(1).max(1200)).max(8),
+  /** Missing or contradictory evidence — including sources that could not be read. */
+  majorGaps: z.array(z.string().min(1).max(1200)).max(8),
+  /** Engineering depth/correctness as far as the materials show. */
+  technicalAssessment: z.string().min(1).max(4000),
+  /** The overall AI verdict, in one short paragraph. */
+  verdict: z.string().min(1).max(2000),
+});
+export type FinalSummary = z.infer<typeof FinalSummarySchema>;
+
 /** The model's raw evaluation payload, before the envelope is attached. */
 export const StructuredEvaluationContentSchema = z
   .object({
@@ -148,6 +198,10 @@ export const StructuredEvaluationContentSchema = z
     strengths: z.array(z.string().min(1).max(2000)),
     weaknesses: z.array(z.string().min(1).max(2000)),
     redFlags: z.array(RedFlagSchema),
+    /** One entry per claim in the evidence bundle (checked below). */
+    claimChecks: z.array(ClaimCheckResultSchema),
+    /** Structured closing summary the judge reads first. */
+    finalSummary: FinalSummarySchema,
     /** Model self-confidence, 0–1. */
     confidence: z.number().min(0).max(1).optional().nullable(),
   })
@@ -172,11 +226,21 @@ export const StructuredEvaluationContentSchema = z
         });
       }
     }
+
+    const claimIds = new Set<string>();
+    for (const check of value.claimChecks) {
+      if (claimIds.has(check.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["claimChecks"],
+          message: `duplicate claim check for "${check.id}"`,
+        });
+      }
+      claimIds.add(check.id);
+    }
   });
 
-export type StructuredEvaluationContent = z.infer<
-  typeof StructuredEvaluationContentSchema
->;
+export type StructuredEvaluationContent = z.infer<typeof StructuredEvaluationContentSchema>;
 
 /** What the agent persists and returns: content + provenance envelope. */
 export interface StructuredEvaluation extends StructuredEvaluationContent {
@@ -184,6 +248,13 @@ export interface StructuredEvaluation extends StructuredEvaluationContent {
   /** Model id that produced it (null when a custom provider omits it). */
   model: string | null;
   evaluatedAt: string;
+  /**
+   * Exactly what evidence the conclusion rests on: every source (readable or
+   * not), every claim with its status, and the gaps. Persisted with the result
+   * so a refresh — or a different judge — can audit the verdict without
+   * re-running anything.
+   */
+  evidenceBundle: EvidenceBundle;
 }
 
 /* --------------------------------------------------------------------- run */
@@ -230,9 +301,7 @@ export class EvaluationSchemaError extends Error {
 /** Pull the first JSON object out of a possibly noisy model response. */
 function extractJsonObject(raw: string): unknown {
   const trimmed = raw.trim();
-  const unfenced = trimmed
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "");
+  const unfenced = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   try {
     return JSON.parse(unfenced);
   } catch {

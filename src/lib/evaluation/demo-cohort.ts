@@ -17,8 +17,17 @@ function resume(resume: Omit<ResumeDetail, "category" | "source">): ResumeDetail
   return { ...resume, category: "resume", source: "demo" };
 }
 
-function project(project: Omit<ProjectDetail, "category" | "source">): ProjectDetail {
-  return { ...project, category: "project", source: "demo" };
+function project(
+  project: Omit<ProjectDetail, "category" | "source" | "presentationClaims"> &
+    Partial<Pick<ProjectDetail, "presentationClaims">>,
+): ProjectDetail {
+  // Demo projects ship without an attached deck, so they have no deck claims.
+  return {
+    ...project,
+    category: "project",
+    source: "demo",
+    presentationClaims: project.presentationClaims ?? null,
+  };
 }
 
 export const DEMO_RESUMES: ResumeDetail[] = [

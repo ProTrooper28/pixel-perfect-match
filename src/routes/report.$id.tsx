@@ -69,6 +69,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   normalizeReportData,
   normalizeReportStatus,
+  type DocumentClaimsView,
   type ReportView,
   type RiskSeverity,
 } from "@/lib/report-data";
@@ -160,6 +161,7 @@ const ALL_SECTIONS = [
   "scores",
   "repo",
   "website",
+  "document",
   "claims",
   "innovation",
   "interview",
@@ -252,6 +254,34 @@ function scoreDimensions(view: ReportView): { label: string; score: number | nul
     { label: "Documentation", score: view.scores.documentation },
     { label: "Innovation", score: view.scores.innovation },
   ];
+}
+
+/** Claim categories extracted from the submitted document, in display order. */
+const DOCUMENT_CLAIM_GROUPS: {
+  key: Exclude<keyof DocumentClaimsView, "summary" | "method">;
+  label: string;
+}[] = [
+  { key: "problem", label: "Problem being solved" },
+  { key: "solution", label: "Proposed solution" },
+  { key: "features", label: "Key features" },
+  { key: "technology", label: "Technology / AI used" },
+  { key: "impact", label: "Claimed impact & results" },
+];
+
+function documentStatusBadge(status: string | null): { label: string; className: string } {
+  if (status === "success") {
+    return { label: "Text extracted", className: "border-success/30 bg-success/10 text-success" };
+  }
+  if (status === "partial") {
+    return { label: "Partially read", className: "border-warning/30 bg-warning/10 text-warning" };
+  }
+  if (status === "failed") {
+    return {
+      label: "Could not be read",
+      className: "border-destructive/30 bg-destructive/10 text-destructive",
+    };
+  }
+  return { label: "Not analysed", className: "border-border bg-muted/50 text-muted-foreground" };
 }
 
 function ReportState({
@@ -493,12 +523,18 @@ function Report() {
     {
       label: "Evidence gathered",
       icon: <ShieldCheck className="h-3.5 w-3.5" />,
-      state: view.hasPayloadData || view.claims.length > 0 ? "done" : running ? "active" : "pending",
+      state:
+        view.hasPayloadData || view.claims.length > 0 ? "done" : running ? "active" : "pending",
     },
     {
       label: "Repository analyzed",
       icon: <Github className="h-3.5 w-3.5" />,
-      state: view.repository || view.architecture.stack.length > 0 ? "done" : running ? "active" : "pending",
+      state:
+        view.repository || view.architecture.stack.length > 0
+          ? "done"
+          : running
+            ? "active"
+            : "pending",
     },
     {
       label: "Project evaluated",
@@ -693,765 +729,898 @@ function Report() {
             <LoadingState label="Loading report analysis…" rows={6} />
           </div>
         ) : (
-        <Accordion
-          type="multiple"
-          value={openSections}
-          onValueChange={setOpenSections}
-          className="surface px-6"
-        >
-          <ReportSection
-            value="verdict"
-            title="AI Verdict"
-            icon={<Bot className="h-4 w-4" />}
-            defaultOpen
+          <Accordion
+            type="multiple"
+            value={openSections}
+            onValueChange={setOpenSections}
+            className="surface px-6"
           >
-            <AiVerdictPanel verdict={aiVerdict} title="AI Analysis &amp; Pre-Assessment" />
-          </ReportSection>
+            <ReportSection
+              value="verdict"
+              title="AI Verdict"
+              icon={<Bot className="h-4 w-4" />}
+              defaultOpen
+            >
+              <AiVerdictPanel verdict={aiVerdict} title="AI Analysis &amp; Pre-Assessment" />
+            </ReportSection>
 
-          <ReportSection
-            value="summary"
-            title="Executive Summary"
-            icon={<FileText className="h-4 w-4" />}
-            defaultOpen
-          >
-            {view.executiveSummary ? (
-              <p className="text-sm text-muted-foreground">{view.executiveSummary}</p>
-            ) : (
-              <EmptyNote />
-            )}
-          </ReportSection>
+            <ReportSection
+              value="summary"
+              title="Executive Summary"
+              icon={<FileText className="h-4 w-4" />}
+              defaultOpen
+            >
+              {view.executiveSummary ? (
+                <p className="text-sm text-muted-foreground">{view.executiveSummary}</p>
+              ) : (
+                <EmptyNote />
+              )}
+            </ReportSection>
 
-          <ReportSection
-            value="overview"
-            title="Project Overview"
-            icon={<Info className="h-4 w-4" />}
-            defaultOpen
-          >
-            {view.overview.summary ? (
-              <p className="text-sm text-muted-foreground">{view.overview.summary}</p>
-            ) : (
-              <EmptyNote>No overview summary was stored with this report.</EmptyNote>
-            )}
-            {(view.overview.repoUrl || view.overview.websiteUrl) && (
-              <div className="mt-4 flex flex-wrap gap-4 text-sm">
-                {view.overview.repoUrl && (
-                  <a
-                    href={view.overview.repoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                  >
-                    <Github className="h-4 w-4" /> {view.overview.repoUrl}
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-                {view.overview.websiteUrl && (
-                  <a
-                    href={view.overview.websiteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                  >
-                    <Globe className="h-4 w-4" /> {view.overview.websiteUrl}
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </div>
-            )}
-            {view.overview.highlights.length > 0 && (
-              <div className="mt-5">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Highlights
-                </p>
-                <BulletList items={view.overview.highlights} icon="check" />
-              </div>
-            )}
-          </ReportSection>
+            <ReportSection
+              value="overview"
+              title="Project Overview"
+              icon={<Info className="h-4 w-4" />}
+              defaultOpen
+            >
+              {view.overview.summary ? (
+                <p className="text-sm text-muted-foreground">{view.overview.summary}</p>
+              ) : (
+                <EmptyNote>No overview summary was stored with this report.</EmptyNote>
+              )}
+              {(view.overview.repoUrl || view.overview.websiteUrl) && (
+                <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                  {view.overview.repoUrl && (
+                    <a
+                      href={view.overview.repoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                    >
+                      <Github className="h-4 w-4" /> {view.overview.repoUrl}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  {view.overview.websiteUrl && (
+                    <a
+                      href={view.overview.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                    >
+                      <Globe className="h-4 w-4" /> {view.overview.websiteUrl}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </div>
+              )}
+              {view.overview.highlights.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Highlights
+                  </p>
+                  <BulletList items={view.overview.highlights} icon="check" />
+                </div>
+              )}
+            </ReportSection>
 
-          <ReportSection
-            value="architecture"
-            title="Architecture / Technology Stack"
-            icon={<Layers className="h-4 w-4" />}
-            count={view.architecture.stack.length || undefined}
-          >
-            {view.architecture.summary && (
-              <p className="text-sm text-muted-foreground">{view.architecture.summary}</p>
-            )}
-            {view.architecture.stack.length > 0 ? (
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {view.architecture.stack.map((entry) => (
-                  <Badge
-                    key={entry.name}
-                    variant="secondary"
-                    className="text-xs"
-                    title={entry.detail ?? undefined}
+            <ReportSection
+              value="architecture"
+              title="Architecture / Technology Stack"
+              icon={<Layers className="h-4 w-4" />}
+              count={view.architecture.stack.length || undefined}
+            >
+              {view.architecture.summary && (
+                <p className="text-sm text-muted-foreground">{view.architecture.summary}</p>
+              )}
+              {view.architecture.stack.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {view.architecture.stack.map((entry) => (
+                    <Badge
+                      key={entry.name}
+                      variant="secondary"
+                      className="text-xs"
+                      title={entry.detail ?? undefined}
+                    >
+                      {entry.name}
+                      {entry.detail ? ` · ${entry.detail}` : ""}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                !view.architecture.summary && <EmptyNote />
+              )}
+              {view.architecture.layers.length > 0 && (
+                <div className="mt-5 space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Layers
+                  </p>
+                  <ul className="space-y-2">
+                    {view.architecture.layers.map((layer) => (
+                      <li key={layer.name} className="text-sm text-muted-foreground">
+                        <strong className="text-foreground">{layer.name}:</strong>{" "}
+                        {layer.detail ?? "—"}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {view.architecture.decisions.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Key decisions
+                  </p>
+                  <BulletList items={view.architecture.decisions} />
+                </div>
+              )}
+            </ReportSection>
+
+            <ReportSection
+              value="code"
+              title="Code Quality"
+              icon={<ClipboardCheck className="h-4 w-4" />}
+              count={view.codeQuality.findings.length || undefined}
+            >
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={`text-3xl font-semibold tabular-nums ${
+                      view.scores.codeQuality === null
+                        ? "text-muted-foreground"
+                        : scoreTone(view.scores.codeQuality)
+                    }`}
                   >
-                    {entry.name}
-                    {entry.detail ? ` · ${entry.detail}` : ""}
+                    {view.scores.codeQuality ?? "—"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ 100</span>
+                </div>
+                {view.codeQuality.coveragePct !== null && (
+                  <Badge variant="outline" className="text-xs">
+                    Test coverage · {view.codeQuality.coveragePct}%
                   </Badge>
-                ))}
+                )}
               </div>
-            ) : (
-              !view.architecture.summary && <EmptyNote />
-            )}
-            {view.architecture.layers.length > 0 && (
-              <div className="mt-5 space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Layers
-                </p>
-                <ul className="space-y-2">
-                  {view.architecture.layers.map((layer) => (
-                    <li key={layer.name} className="text-sm text-muted-foreground">
-                      <strong className="text-foreground">{layer.name}:</strong>{" "}
-                      {layer.detail ?? "—"}
+              {view.codeQuality.summary && (
+                <p className="mt-3 text-sm text-muted-foreground">{view.codeQuality.summary}</p>
+              )}
+              {view.codeQuality.findings.length > 0 ? (
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Findings
+                  </p>
+                  <BulletList items={view.codeQuality.findings} icon="check" />
+                </div>
+              ) : view.codeQuality.notes.length > 0 ? (
+                <div className="mt-4">
+                  <BulletList items={view.codeQuality.notes} icon="check" />
+                </div>
+              ) : (
+                !view.codeQuality.summary && <EmptyNote />
+              )}
+            </ReportSection>
+
+            <ReportSection
+              value="security"
+              title="Security"
+              icon={<ShieldCheck className="h-4 w-4" />}
+              count={view.security.findings.length || undefined}
+              tone="warning"
+            >
+              {view.security.summary && (
+                <p className="text-sm text-muted-foreground">{view.security.summary}</p>
+              )}
+              {view.security.findings.length > 0 ? (
+                <ul className="mt-4 space-y-3">
+                  {view.security.findings.map((finding, i) => (
+                    <li key={`${finding.title}-${i}`} className="flex gap-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 font-medium">
+                          {finding.title}
+                          <SeverityBadge severity={finding.severity} />
+                        </div>
+                        {finding.detail && (
+                          <p className="text-sm text-muted-foreground">{finding.detail}</p>
+                        )}
+                        {finding.mitigation && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Fix: {finding.mitigation}
+                          </p>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
-            {view.architecture.decisions.length > 0 && (
-              <div className="mt-5">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Key decisions
-                </p>
-                <BulletList items={view.architecture.decisions} />
-              </div>
-            )}
-          </ReportSection>
-
-          <ReportSection
-            value="code"
-            title="Code Quality"
-            icon={<ClipboardCheck className="h-4 w-4" />}
-            count={view.codeQuality.findings.length || undefined}
-          >
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-baseline gap-2">
-                <span
-                  className={`text-3xl font-semibold tabular-nums ${
-                    view.scores.codeQuality === null
-                      ? "text-muted-foreground"
-                      : scoreTone(view.scores.codeQuality)
-                  }`}
-                >
-                  {view.scores.codeQuality ?? "—"}
-                </span>
-                <span className="text-sm text-muted-foreground">/ 100</span>
-              </div>
-              {view.codeQuality.coveragePct !== null && (
-                <Badge variant="outline" className="text-xs">
-                  Test coverage · {view.codeQuality.coveragePct}%
-                </Badge>
+              ) : (
+                !view.security.summary && <EmptyNote />
               )}
-            </div>
-            {view.codeQuality.summary && (
-              <p className="mt-3 text-sm text-muted-foreground">{view.codeQuality.summary}</p>
-            )}
-            {view.codeQuality.findings.length > 0 ? (
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Findings
-                </p>
-                <BulletList items={view.codeQuality.findings} icon="check" />
-              </div>
-            ) : view.codeQuality.notes.length > 0 ? (
-              <div className="mt-4">
-                <BulletList items={view.codeQuality.notes} icon="check" />
-              </div>
-            ) : (
-              !view.codeQuality.summary && <EmptyNote />
-            )}
-          </ReportSection>
+            </ReportSection>
 
-          <ReportSection
-            value="security"
-            title="Security"
-            icon={<ShieldCheck className="h-4 w-4" />}
-            count={view.security.findings.length || undefined}
-            tone="warning"
-          >
-            {view.security.summary && (
-              <p className="text-sm text-muted-foreground">{view.security.summary}</p>
-            )}
-            {view.security.findings.length > 0 ? (
-              <ul className="mt-4 space-y-3">
-                {view.security.findings.map((finding, i) => (
-                  <li key={`${finding.title}-${i}`} className="flex gap-3">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 font-medium">
-                        {finding.title}
-                        <SeverityBadge severity={finding.severity} />
-                      </div>
-                      {finding.detail && (
-                        <p className="text-sm text-muted-foreground">{finding.detail}</p>
-                      )}
-                      {finding.mitigation && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Fix: {finding.mitigation}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              !view.security.summary && <EmptyNote />
-            )}
-          </ReportSection>
-
-          <ReportSection
-            value="performance"
-            title="Performance"
-            icon={<Gauge className="h-4 w-4" />}
-          >
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-baseline gap-2">
-                <span
-                  className={`text-3xl font-semibold tabular-nums ${
-                    view.scores.performance === null
-                      ? "text-muted-foreground"
-                      : scoreTone(view.scores.performance)
-                  }`}
-                >
-                  {view.scores.performance ?? "—"}
-                </span>
-                <span className="text-sm text-muted-foreground">/ 100</span>
+            <ReportSection
+              value="performance"
+              title="Performance"
+              icon={<Gauge className="h-4 w-4" />}
+            >
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={`text-3xl font-semibold tabular-nums ${
+                      view.scores.performance === null
+                        ? "text-muted-foreground"
+                        : scoreTone(view.scores.performance)
+                    }`}
+                  >
+                    {view.scores.performance ?? "—"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ 100</span>
+                </div>
+                {view.performance.pageWeightMb !== null && (
+                  <Badge variant="outline" className="text-xs">
+                    Page weight · {view.performance.pageWeightMb} MB
+                  </Badge>
+                )}
               </div>
-              {view.performance.pageWeightMb !== null && (
-                <Badge variant="outline" className="text-xs">
-                  Page weight · {view.performance.pageWeightMb} MB
-                </Badge>
+              {view.performance.summary && (
+                <p className="mt-3 text-sm text-muted-foreground">{view.performance.summary}</p>
               )}
-            </div>
-            {view.performance.summary && (
-              <p className="mt-3 text-sm text-muted-foreground">{view.performance.summary}</p>
-            )}
-            {view.performance.lighthouse.some((entry) => entry.score !== null) && (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {view.performance.lighthouse.map((entry) => (
-                  <ScoreStat key={entry.name} label={entry.name} score={entry.score} />
-                ))}
-              </div>
-            )}
-            {view.performance.vitals.length > 0 && (
-              <>
-                <div className="mt-4 flex flex-wrap gap-6 text-sm text-muted-foreground">
-                  {view.performance.vitals.map((vital) => (
-                    <span key={vital.name}>
-                      {vital.name} {vital.value ?? "—"}
-                      {vital.unit}
-                    </span>
+              {view.performance.lighthouse.some((entry) => entry.score !== null) && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {view.performance.lighthouse.map((entry) => (
+                    <ScoreStat key={entry.name} label={entry.name} score={entry.score} />
                   ))}
                 </div>
-                <div className="mt-4">
-                  <Suspense
-                    fallback={
-                      <div className="h-[180px] w-full animate-pulse rounded-lg bg-muted/40" />
-                    }
-                  >
-                    <PerformanceChart
-                      vitals=
-                        {view.performance.vitals.map((v) => ({
+              )}
+              {view.performance.vitals.length > 0 && (
+                <>
+                  <div className="mt-4 flex flex-wrap gap-6 text-sm text-muted-foreground">
+                    {view.performance.vitals.map((vital) => (
+                      <span key={vital.name}>
+                        {vital.name} {vital.value ?? "—"}
+                        {vital.unit}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <Suspense
+                      fallback={
+                        <div className="h-[180px] w-full animate-pulse rounded-lg bg-muted/40" />
+                      }
+                    >
+                      <PerformanceChart
+                        vitals={view.performance.vitals.map((v) => ({
                           name: v.name,
                           value: v.value ?? null,
                           threshold: v.threshold ?? null,
                         }))}
-                    />
-                  </Suspense>
+                      />
+                    </Suspense>
+                  </div>
+                </>
+              )}
+              {view.performance.summary === null &&
+                view.performance.vitals.length === 0 &&
+                !view.performance.lighthouse.some((entry) => entry.score !== null) && <EmptyNote />}
+            </ReportSection>
+
+            <ReportSection
+              value="maintainability"
+              title="Maintainability"
+              icon={<Wrench className="h-4 w-4" />}
+            >
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={`text-3xl font-semibold tabular-nums ${
+                    view.scores.maintainability === null
+                      ? "text-muted-foreground"
+                      : scoreTone(view.scores.maintainability)
+                  }`}
+                >
+                  {view.scores.maintainability ?? "—"}
+                </span>
+                <span className="text-sm text-muted-foreground">/ 100</span>
+              </div>
+              {view.maintainability.summary ? (
+                <p className="mt-3 text-sm text-muted-foreground">{view.maintainability.summary}</p>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  No maintainability summary was stored with this report.
+                </p>
+              )}
+              {view.maintainability.notes.length > 0 && (
+                <div className="mt-4">
+                  <BulletList items={view.maintainability.notes} />
                 </div>
-              </>
-            )}
-            {view.performance.summary === null &&
-              view.performance.vitals.length === 0 &&
-              !view.performance.lighthouse.some((entry) => entry.score !== null) && <EmptyNote />}
-          </ReportSection>
+              )}
+            </ReportSection>
 
-          <ReportSection
-            value="maintainability"
-            title="Maintainability"
-            icon={<Wrench className="h-4 w-4" />}
-          >
-            <div className="flex items-baseline gap-2">
-              <span
-                className={`text-3xl font-semibold tabular-nums ${
-                  view.scores.maintainability === null
-                    ? "text-muted-foreground"
-                    : scoreTone(view.scores.maintainability)
-                }`}
-              >
-                {view.scores.maintainability ?? "—"}
-              </span>
-              <span className="text-sm text-muted-foreground">/ 100</span>
-            </div>
-            {view.maintainability.summary ? (
-              <p className="mt-3 text-sm text-muted-foreground">{view.maintainability.summary}</p>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                No maintainability summary was stored with this report.
-              </p>
-            )}
-            {view.maintainability.notes.length > 0 && (
-              <div className="mt-4">
-                <BulletList items={view.maintainability.notes} />
+            <ReportSection
+              value="documentation"
+              title="Documentation"
+              icon={<FileWarning className="h-4 w-4" />}
+            >
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={`text-3xl font-semibold tabular-nums ${
+                    view.scores.documentation === null
+                      ? "text-muted-foreground"
+                      : scoreTone(view.scores.documentation)
+                  }`}
+                >
+                  {view.scores.documentation ?? "—"}
+                </span>
+                <span className="text-sm text-muted-foreground">/ 100</span>
               </div>
-            )}
-          </ReportSection>
+              {view.documentation.summary ? (
+                <p className="mt-3 text-sm text-muted-foreground">{view.documentation.summary}</p>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  No documentation evidence was recorded — not enough evidence.
+                </p>
+              )}
+              {view.documentation.notes.length > 0 && (
+                <div className="mt-4">
+                  <BulletList items={view.documentation.notes} />
+                </div>
+              )}
+            </ReportSection>
 
-          <ReportSection
-            value="documentation"
-            title="Documentation"
-            icon={<FileWarning className="h-4 w-4" />}
-          >
-            <div className="flex items-baseline gap-2">
-              <span
-                className={`text-3xl font-semibold tabular-nums ${
-                  view.scores.documentation === null
-                    ? "text-muted-foreground"
-                    : scoreTone(view.scores.documentation)
-                }`}
-              >
-                {view.scores.documentation ?? "—"}
-              </span>
-              <span className="text-sm text-muted-foreground">/ 100</span>
-            </div>
-            {view.documentation.summary ? (
-              <p className="mt-3 text-sm text-muted-foreground">{view.documentation.summary}</p>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                No documentation evidence was recorded — not enough evidence.
-              </p>
-            )}
-            {view.documentation.notes.length > 0 && (
-              <div className="mt-4">
-                <BulletList items={view.documentation.notes} />
+            <ReportSection
+              value="testing"
+              title="Testing"
+              icon={<ListChecks className="h-4 w-4" />}
+              tone="warning"
+            >
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={`text-3xl font-semibold tabular-nums ${
+                    view.scores.testing === null
+                      ? "text-muted-foreground"
+                      : scoreTone(view.scores.testing)
+                  }`}
+                >
+                  {view.scores.testing ?? "—"}
+                </span>
+                <span className="text-sm text-muted-foreground">/ 100</span>
               </div>
-            )}
-          </ReportSection>
+              {view.testing.summary ? (
+                <p className="mt-3 text-sm text-muted-foreground">{view.testing.summary}</p>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  No testing evidence was recorded — not enough evidence.
+                </p>
+              )}
+              {view.testing.notes.length > 0 && (
+                <div className="mt-4">
+                  <BulletList items={view.testing.notes} />
+                </div>
+              )}
+            </ReportSection>
 
-          <ReportSection
-            value="testing"
-            title="Testing"
-            icon={<ListChecks className="h-4 w-4" />}
-            tone="warning"
-          >
-            <div className="flex items-baseline gap-2">
-              <span
-                className={`text-3xl font-semibold tabular-nums ${
-                  view.scores.testing === null
-                    ? "text-muted-foreground"
-                    : scoreTone(view.scores.testing)
-                }`}
-              >
-                {view.scores.testing ?? "—"}
-              </span>
-              <span className="text-sm text-muted-foreground">/ 100</span>
-            </div>
-            {view.testing.summary ? (
-              <p className="mt-3 text-sm text-muted-foreground">{view.testing.summary}</p>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                No testing evidence was recorded — not enough evidence.
-              </p>
-            )}
-            {view.testing.notes.length > 0 && (
-              <div className="mt-4">
-                <BulletList items={view.testing.notes} />
-              </div>
-            )}
-          </ReportSection>
-
-          <ReportSection
-            value="risks"
-            title="Risks / Findings"
-            icon={<FileWarning className="h-4 w-4" />}
-            count={findings.length || undefined}
-            tone="destructive"
-            defaultOpen
-          >
-            {findings.length > 0 ? (
-              <ul className="space-y-4">
-                {findings.map((finding, i) => (
-                  <li key={`${finding.title}-${i}`} className="flex gap-3">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 font-medium">
-                        {finding.title}
-                        <SeverityBadge severity={finding.severity} />
-                      </div>
-                      {finding.detail && (
-                        <p className="text-sm text-muted-foreground">{finding.detail}</p>
-                      )}
-                      {finding.mitigation && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Mitigation: {finding.mitigation}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyNote>No risks or findings were recorded for this report.</EmptyNote>
-            )}
-          </ReportSection>
-
-          <ReportSection
-            value="recommendations"
-            title="Recommendations"
-            icon={<Lightbulb className="h-4 w-4" />}
-            count={view.recommendations.length || undefined}
-            tone="warning"
-            defaultOpen
-          >
-            {view.recommendations.length > 0 ? (
-              <ol className="space-y-3">
-                {view.recommendations.map((rec, i) => (
-                  <motion.li
-                    key={`${rec.title}-${i}`}
-                    initial={{ opacity: 0, x: -4 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                    className="flex gap-3 text-sm"
-                  >
-                    <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
-                      {i + 1}
-                    </span>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2 text-foreground">
-                        {rec.title}
-                        {rec.priority && (
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {rec.priority}
-                          </Badge>
+            <ReportSection
+              value="risks"
+              title="Risks / Findings"
+              icon={<FileWarning className="h-4 w-4" />}
+              count={findings.length || undefined}
+              tone="destructive"
+              defaultOpen
+            >
+              {findings.length > 0 ? (
+                <ul className="space-y-4">
+                  {findings.map((finding, i) => (
+                    <li key={`${finding.title}-${i}`} className="flex gap-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 font-medium">
+                          {finding.title}
+                          <SeverityBadge severity={finding.severity} />
+                        </div>
+                        {finding.detail && (
+                          <p className="text-sm text-muted-foreground">{finding.detail}</p>
+                        )}
+                        {finding.mitigation && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Mitigation: {finding.mitigation}
+                          </p>
                         )}
                       </div>
-                      {rec.detail && <p className="text-sm text-muted-foreground">{rec.detail}</p>}
-                    </div>
-                  </motion.li>
-                ))}
-              </ol>
-            ) : (
-              <EmptyNote>No recommendations were stored with this report.</EmptyNote>
-            )}
-          </ReportSection>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyNote>No risks or findings were recorded for this report.</EmptyNote>
+              )}
+            </ReportSection>
 
-          <ReportSection
-            value="scores"
-            title="Overall Score"
-            icon={<TrendingUp className="h-4 w-4" />}
-            tone="success"
-          >
-            {" "}
-            {scoredDimensions.length > 0 ? (
-              <>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {dimensions.map((dimension) => (
-                    <ScoreStat
-                      key={dimension.label}
-                      label={dimension.label}
-                      score={dimension.score}
-                    />
+            <ReportSection
+              value="recommendations"
+              title="Recommendations"
+              icon={<Lightbulb className="h-4 w-4" />}
+              count={view.recommendations.length || undefined}
+              tone="warning"
+              defaultOpen
+            >
+              {view.recommendations.length > 0 ? (
+                <ol className="space-y-3">
+                  {view.recommendations.map((rec, i) => (
+                    <motion.li
+                      key={`${rec.title}-${i}`}
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      className="flex gap-3 text-sm"
+                    >
+                      <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
+                        {i + 1}
+                      </span>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2 text-foreground">
+                          {rec.title}
+                          {rec.priority && (
+                            <Badge variant="outline" className="text-xs capitalize">
+                              {rec.priority}
+                            </Badge>
+                          )}
+                        </div>
+                        {rec.detail && (
+                          <p className="text-sm text-muted-foreground">{rec.detail}</p>
+                        )}
+                      </div>
+                    </motion.li>
+                  ))}
+                </ol>
+              ) : (
+                <EmptyNote>No recommendations were stored with this report.</EmptyNote>
+              )}
+            </ReportSection>
+
+            <ReportSection
+              value="scores"
+              title="Overall Score"
+              icon={<TrendingUp className="h-4 w-4" />}
+              tone="success"
+            >
+              {" "}
+              {scoredDimensions.length > 0 ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {dimensions.map((dimension) => (
+                      <ScoreStat
+                        key={dimension.label}
+                        label={dimension.label}
+                        score={dimension.score}
+                      />
+                    ))}
+                  </div>
+                  {view.scoreBreakdown && view.scoreBreakdown.dimensions.length > 0 && (
+                    <div className="mt-5">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        How the overall score is calculated
+                      </p>
+                      <ul className="space-y-2">
+                        {view.scoreBreakdown.dimensions.map((dimension) => (
+                          <li
+                            key={dimension.key}
+                            className="flex flex-wrap items-baseline gap-2 text-sm text-muted-foreground"
+                          >
+                            <span className="font-medium text-foreground">{dimension.label}</span>
+                            <span className="font-mono text-xs">
+                              {dimension.score === null ? "—" : dimension.score}
+                            </span>
+                            <span className="text-xs">
+                              weight {Math.round(dimension.weight * 100)}%
+                            </span>
+                            {dimension.contribution !== null && (
+                              <span className="text-xs">
+                                contributes {dimension.contribution} pts
+                              </span>
+                            )}
+                            <span className="w-full text-xs">{dimension.rationale}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <EmptyNote>No scores have been stored for this report yet.</EmptyNote>
+              )}
+            </ReportSection>
+
+            {/* Detail sections that only render when the payload carries data */}
+            {view.repository && (
+              <ReportSection
+                value="repo"
+                title="Repository"
+                icon={<Github className="h-4 w-4" />}
+                count={view.repository.contributors ?? undefined}
+              >
+                {view.repository.url && (
+                  <a
+                    href={view.repository.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    {view.repository.url} <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
+                  {[
+                    { label: "Stars", value: view.repository.stars },
+                    { label: "Forks", value: view.repository.forks },
+                    { label: "Commits", value: view.repository.commits },
+                    { label: "Contributors", value: view.repository.contributors },
+                    { label: "Open issues", value: view.repository.openIssues },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="rounded-lg bg-muted/50 px-3 py-2.5 text-center"
+                    >
+                      <p className="text-lg font-semibold tabular-nums">{stat.value ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    </div>
                   ))}
                 </div>
-                {view.scoreBreakdown && view.scoreBreakdown.dimensions.length > 0 && (
+                {view.repository.languages.length > 0 && (
                   <div className="mt-5">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      How the overall score is calculated
+                    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Language mix
                     </p>
-                    <ul className="space-y-2">
-                      {view.scoreBreakdown.dimensions.map((dimension) => (
-                        <li
-                          key={dimension.key}
-                          className="flex flex-wrap items-baseline gap-2 text-sm text-muted-foreground"
-                        >
-                          <span className="font-medium text-foreground">{dimension.label}</span>
-                          <span className="font-mono text-xs">
-                            {dimension.score === null ? "—" : dimension.score}
-                          </span>
-                          <span className="text-xs">
-                            weight {Math.round(dimension.weight * 100)}%
-                          </span>
-                          {dimension.contribution !== null && (
-                            <span className="text-xs">
-                              contributes {dimension.contribution} pts
-                            </span>
-                          )}
-                          <span className="w-full text-xs">{dimension.rationale}</span>
+                    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {view.repository.languages.map((language) => (
+                        <li key={language.name} className="flex items-center gap-1.5">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{
+                              background: `hsl(${(language.name.length * 60) % 360} 70% 55%)`,
+                            }}
+                          />
+                          {language.name}
+                          {language.pct > 0 ? ` · ${language.pct}%` : ""}
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
-              </>
-            ) : (
-              <EmptyNote>No scores have been stored for this report yet.</EmptyNote>
-            )}
-          </ReportSection>
-
-          {/* Detail sections that only render when the payload carries data */}
-          {view.repository && (
-            <ReportSection
-              value="repo"
-              title="Repository"
-              icon={<Github className="h-4 w-4" />}
-              count={view.repository.contributors ?? undefined}
-            >
-              {view.repository.url && (
-                <a
-                  href={view.repository.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-                >
-                  {view.repository.url} <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              )}
-              <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
-                {[
-                  { label: "Stars", value: view.repository.stars },
-                  { label: "Forks", value: view.repository.forks },
-                  { label: "Commits", value: view.repository.commits },
-                  { label: "Contributors", value: view.repository.contributors },
-                  { label: "Open issues", value: view.repository.openIssues },
-                ].map((stat) => (
-                  <div key={stat.label} className="rounded-lg bg-muted/50 px-3 py-2.5 text-center">
-                    <p className="text-lg font-semibold tabular-nums">{stat.value ?? "—"}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                {view.repository.commitActivity.length > 0 && (
+                  <div className="mt-5">
+                    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Commit activity
+                    </p>
+                    <Suspense
+                      fallback={
+                        <div className="h-[140px] w-full animate-pulse rounded-lg bg-muted/40" />
+                      }
+                    >
+                      <RepositoryChart commitActivity={view.repository.commitActivity} />
+                    </Suspense>
                   </div>
-                ))}
-              </div>
-              {view.repository.languages.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Language mix
-                  </p>
-                  <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    {view.repository.languages.map((language) => (
-                      <li key={language.name} className="flex items-center gap-1.5">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{
-                            background: `hsl(${(language.name.length * 60) % 360} 70% 55%)`,
-                          }}
-                        />
-                        {language.name}
-                        {language.pct > 0 ? ` · ${language.pct}%` : ""}
+                )}
+                {view.repository.notes.length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {view.repository.notes.map((note) => (
+                      <li key={note} className="flex gap-2 text-sm text-muted-foreground">
+                        <Check className="mt-0.5 h-4 w-4 text-success" /> {note}
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
-              {view.repository.commitActivity.length > 0 && (
-                <div className="mt-5">
-                  <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Commit activity
-                  </p>
-                  <Suspense
-                    fallback={
-                      <div className="h-[140px] w-full animate-pulse rounded-lg bg-muted/40" />
-                    }
-                  >
-                    <RepositoryChart
-                      commitActivity={view.repository.commitActivity}
-                    />
-                  </Suspense>
-                </div>
-              )}
-              {view.repository.notes.length > 0 && (
-                <ul className="mt-4 space-y-2">
-                  {view.repository.notes.map((note) => (
-                    <li key={note} className="flex gap-2 text-sm text-muted-foreground">
-                      <Check className="mt-0.5 h-4 w-4 text-success" /> {note}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </ReportSection>
-          )}
-
-          {view.website && (
-            <ReportSection value="website" title="Website" icon={<Globe className="h-4 w-4" />}>
-              {view.website.url && (
-                <a
-                  href={view.website.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-                >
-                  {view.website.url} <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              )}
-              {view.website.status && (
-                <Badge
-                  variant="outline"
-                  className="ml-3 border-success/30 bg-success/10 text-success"
-                >
-                  {view.website.status}
-                </Badge>
-              )}
-              <div className="mt-4 flex flex-wrap gap-6 text-sm text-muted-foreground">
-                {view.website.vitals.map((vital) => (
-                  <span key={vital.name}>
-                    {vital.name} {vital.value ?? "—"}
-                    {vital.unit}
-                  </span>
-                ))}
-                {view.website.pageWeightMb !== null && (
-                  <span>Page weight {view.website.pageWeightMb} MB</span>
                 )}
-              </div>
-            </ReportSection>
-          )}
+              </ReportSection>
+            )}
 
-          {view.claims.length > 0 && (
-            <ReportSection
-              value="claims"
-              title="Claim Verification"
-              icon={<ListChecks className="h-4 w-4" />}
-              count={view.claims.length}
-              tone="warning"
-            >
-              <ul className="space-y-4">
-                {view.claims.map((claim, i) => (
-                  <motion.li
-                    key={`${claim.claim}-${i}`}
-                    initial={{ opacity: 0, x: -4 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex gap-3"
+            {view.website && (
+              <ReportSection value="website" title="Website" icon={<Globe className="h-4 w-4" />}>
+                {view.website.url && (
+                  <a
+                    href={view.website.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                   >
-                    {claim.verified ? (
-                      <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
-                    ) : (
-                      <XCircle className="h-5 w-5 shrink-0 text-destructive" />
-                    )}
-                    <div>
-                      <p className="font-medium">{claim.claim}</p>
-                      {claim.evidence && (
-                        <p className="text-sm text-muted-foreground">{claim.evidence}</p>
-                      )}
-                    </div>
+                    {view.website.url} <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {view.website.status && (
+                  <Badge
+                    variant="outline"
+                    className="ml-3 border-success/30 bg-success/10 text-success"
+                  >
+                    {view.website.status}
+                  </Badge>
+                )}
+                <div className="mt-4 flex flex-wrap gap-6 text-sm text-muted-foreground">
+                  {view.website.vitals.map((vital) => (
+                    <span key={vital.name}>
+                      {vital.name} {vital.value ?? "—"}
+                      {vital.unit}
+                    </span>
+                  ))}
+                  {view.website.pageWeightMb !== null && (
+                    <span>Page weight {view.website.pageWeightMb} MB</span>
+                  )}
+                </div>
+              </ReportSection>
+            )}
+
+            {view.documentAnalysis && (
+              <ReportSection
+                value="document"
+                title="Document Analysis"
+                icon={<FileText className="h-4 w-4" />}
+                count={view.documentAnalysis.totalPages ?? undefined}
+                tone="warning"
+              >
+                <div className="space-y-4">
+                  {/* Extraction status — did OCR/text extraction work? */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={`ml-auto self-start ${claim.verified ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
+                      className={documentStatusBadge(view.documentAnalysis.status).className}
                     >
-                      {claim.verified ? "Verified" : "Unverified"}
+                      {documentStatusBadge(view.documentAnalysis.status).label}
                     </Badge>
-                  </motion.li>
-                ))}
-              </ul>
-            </ReportSection>
-          )}
-
-          {view.innovation && (
-            <ReportSection
-              value="innovation"
-              title="Innovation"
-              icon={<CircuitBoard className="h-4 w-4" />}
-              tone="success"
-            >
-              <div className="flex items-baseline gap-2">
-                <span
-                  className={`text-4xl font-semibold tabular-nums ${
-                    view.innovation.score === null
-                      ? "text-muted-foreground"
-                      : scoreTone(view.innovation.score)
-                  }`}
-                >
-                  {view.innovation.score ?? "—"}
-                </span>
-                <span className="text-sm text-muted-foreground">/ 100</span>
-              </div>
-              {view.innovation.summary && (
-                <p className="mt-2 text-sm text-muted-foreground">{view.innovation.summary}</p>
-              )}
-              {view.innovation.comparable && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  <strong className="text-foreground">Closest analogue:</strong>{" "}
-                  {view.innovation.comparable}
-                </p>
-              )}
-              {view.innovation.markers.length > 0 && (
-                <>
-                  <Separator className="my-4" />
-                  <ul className="space-y-2">
-                    {view.innovation.markers.map((marker) => (
-                      <li key={marker.label} className="text-sm text-muted-foreground">
-                        <strong className="text-foreground">{marker.label}:</strong>{" "}
-                        {marker.detail ?? "—"}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </ReportSection>
-          )}
-
-          {view.interviewQuestions.length > 0 && (
-            <ReportSection
-              value="interview"
-              title="Interview Questions"
-              icon={<MessagesSquare className="h-4 w-4" />}
-              count={view.interviewQuestions.length}
-            >
-              <ol className="space-y-3">
-                {view.interviewQuestions.map((q, i) => (
-                  <li key={`${q}-${i}`} className="flex gap-3 text-sm">
-                    <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
-                      {i + 1}
+                    {view.documentAnalysis.method && (
+                      <Badge
+                        variant="outline"
+                        className="border-border bg-muted/60 text-muted-foreground"
+                      >
+                        {view.documentAnalysis.method === "ocr" || view.documentAnalysis.ocrApplied
+                          ? "Read via OCR"
+                          : "Text extracted"}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {view.documentAnalysis.fileName ?? "Submitted document"}
+                      {typeof view.documentAnalysis.totalPages === "number" &&
+                        ` · ${view.documentAnalysis.totalPages} ${view.documentAnalysis.fileType === "pptx" ? "slides" : "pages"}`}
+                      {typeof view.documentAnalysis.charsExtracted === "number" &&
+                        view.documentAnalysis.charsExtracted > 0 &&
+                        ` · ${view.documentAnalysis.charsExtracted.toLocaleString()} characters read`}
                     </span>
-                    <span className="text-muted-foreground">{q}</span>
-                  </li>
-                ))}
-              </ol>
-            </ReportSection>
-          )}
+                  </div>
 
-          {view.judgeQuestions.length > 0 && (
-            <ReportSection
-              value="judge"
-              title="Judge Questions"
-              icon={<Gavel className="h-4 w-4" />}
-              count={view.judgeQuestions.length}
-            >
-              <ol className="space-y-3">
-                {view.judgeQuestions.map((q, i) => (
-                  <li key={`${q}-${i}`} className="flex gap-3 text-sm">
-                    <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
-                      {i + 1}
-                    </span>
-                    <span className="text-muted-foreground">{q}</span>
-                  </li>
-                ))}
-              </ol>
-            </ReportSection>
-          )}
+                  {view.documentAnalysis.status === "failed" ? (
+                    <div className="space-y-2">
+                      <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                        {view.documentAnalysis.error ??
+                          "The submitted document could not be read, so no claims were extracted from it."}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        The document is still part of the submission and can be reviewed manually —
+                        only the automatic text/claim extraction failed.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* The disclaimer: these are CLAIMS, not verified facts. */}
+                      <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm font-medium text-warning">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                        {view.documentAnalysis.disclaimer ??
+                          "Claims from the submitted document — these are the team's own assertions, not automatically verified facts."}
+                      </p>
 
-          {view.timeline.length > 0 && (
-            <ReportSection
-              value="timeline"
-              title="Timeline"
-              icon={<GitBranch className="h-4 w-4" />}
-            >
-              <ol className="relative ml-2 space-y-4 border-l border-border pl-6">
-                {view.timeline.map((entry, i) => (
-                  <motion.li
-                    key={`${entry.time}-${i}`}
-                    initial={{ opacity: 0, x: -4 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="relative"
+                      {view.documentAnalysis.claims?.summary && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            What the team claims this project does
+                          </p>
+                          <p className="text-sm text-foreground">
+                            {view.documentAnalysis.claims.summary}
+                          </p>
+                        </div>
+                      )}
+
+                      {view.documentAnalysis.claims ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {DOCUMENT_CLAIM_GROUPS.map(({ key, label }) => {
+                            const items = view.documentAnalysis?.claims?.[key] ?? [];
+                            return (
+                              <div
+                                key={key}
+                                className="rounded-lg border border-border bg-muted/30 p-3"
+                              >
+                                <p className="text-xs font-semibold text-foreground">{label}</p>
+                                {items.length === 0 ? (
+                                  <p className="mt-1 text-xs italic text-muted-foreground">
+                                    Not stated in the document
+                                  </p>
+                                ) : (
+                                  <ul className="mt-1.5 space-y-1.5">
+                                    {items.map((item, i) => (
+                                      <li
+                                        key={`${key}-${i}`}
+                                        className="flex gap-2 text-sm text-muted-foreground"
+                                      >
+                                        <span className={listIcon} />
+                                        {item}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <EmptyNote>
+                          No claims could be extracted from the document (nothing readable was
+                          found).
+                        </EmptyNote>
+                      )}
+
+                      {view.documentAnalysis.warnings.length > 0 && (
+                        <ul className="space-y-1">
+                          {view.documentAnalysis.warnings.map((warning) => (
+                            <li
+                              key={warning}
+                              className="flex items-start gap-2 text-sm text-warning"
+                            >
+                              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                              {warning}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <p className="text-sm text-muted-foreground">
+                        These claims are handed to the evaluation pipeline, which checks them
+                        against the repository and the deployed website — see Claim Verification for
+                        the outcome.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </ReportSection>
+            )}
+
+            {view.claims.length > 0 && (
+              <ReportSection
+                value="claims"
+                title="Claim Verification"
+                icon={<ListChecks className="h-4 w-4" />}
+                count={view.claims.length}
+                tone="warning"
+              >
+                <ul className="space-y-4">
+                  {view.claims.map((claim, i) => (
+                    <motion.li
+                      key={`${claim.claim}-${i}`}
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex gap-3"
+                    >
+                      {claim.verified ? (
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+                      ) : (
+                        <XCircle className="h-5 w-5 shrink-0 text-destructive" />
+                      )}
+                      <div>
+                        <p className="font-medium">{claim.claim}</p>
+                        {claim.evidence && (
+                          <p className="text-sm text-muted-foreground">{claim.evidence}</p>
+                        )}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`ml-auto self-start ${claim.verified ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"}`}
+                      >
+                        {claim.verified ? "Verified" : "Unverified"}
+                      </Badge>
+                    </motion.li>
+                  ))}
+                </ul>
+              </ReportSection>
+            )}
+
+            {view.innovation && (
+              <ReportSection
+                value="innovation"
+                title="Innovation"
+                icon={<CircuitBoard className="h-4 w-4" />}
+                tone="success"
+              >
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={`text-4xl font-semibold tabular-nums ${
+                      view.innovation.score === null
+                        ? "text-muted-foreground"
+                        : scoreTone(view.innovation.score)
+                    }`}
                   >
-                    <span className="absolute -left-[29px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
-                    <p className="font-mono text-xs text-muted-foreground">{entry.time}</p>
-                    <p className="text-sm">{entry.event}</p>
-                  </motion.li>
-                ))}
-              </ol>
-            </ReportSection>
-          )}
-        </Accordion>
+                    {view.innovation.score ?? "—"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ 100</span>
+                </div>
+                {view.innovation.summary && (
+                  <p className="mt-2 text-sm text-muted-foreground">{view.innovation.summary}</p>
+                )}
+                {view.innovation.comparable && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    <strong className="text-foreground">Closest analogue:</strong>{" "}
+                    {view.innovation.comparable}
+                  </p>
+                )}
+                {view.innovation.markers.length > 0 && (
+                  <>
+                    <Separator className="my-4" />
+                    <ul className="space-y-2">
+                      {view.innovation.markers.map((marker) => (
+                        <li key={marker.label} className="text-sm text-muted-foreground">
+                          <strong className="text-foreground">{marker.label}:</strong>{" "}
+                          {marker.detail ?? "—"}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </ReportSection>
+            )}
+
+            {view.interviewQuestions.length > 0 && (
+              <ReportSection
+                value="interview"
+                title="Interview Questions"
+                icon={<MessagesSquare className="h-4 w-4" />}
+                count={view.interviewQuestions.length}
+              >
+                <ol className="space-y-3">
+                  {view.interviewQuestions.map((q, i) => (
+                    <li key={`${q}-${i}`} className="flex gap-3 text-sm">
+                      <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
+                        {i + 1}
+                      </span>
+                      <span className="text-muted-foreground">{q}</span>
+                    </li>
+                  ))}
+                </ol>
+              </ReportSection>
+            )}
+
+            {view.judgeQuestions.length > 0 && (
+              <ReportSection
+                value="judge"
+                title="Judge Questions"
+                icon={<Gavel className="h-4 w-4" />}
+                count={view.judgeQuestions.length}
+              >
+                <ol className="space-y-3">
+                  {view.judgeQuestions.map((q, i) => (
+                    <li key={`${q}-${i}`} className="flex gap-3 text-sm">
+                      <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 font-mono text-xs text-primary">
+                        {i + 1}
+                      </span>
+                      <span className="text-muted-foreground">{q}</span>
+                    </li>
+                  ))}
+                </ol>
+              </ReportSection>
+            )}
+
+            {view.timeline.length > 0 && (
+              <ReportSection
+                value="timeline"
+                title="Timeline"
+                icon={<GitBranch className="h-4 w-4" />}
+              >
+                <ol className="relative ml-2 space-y-4 border-l border-border pl-6">
+                  {view.timeline.map((entry, i) => (
+                    <motion.li
+                      key={`${entry.time}-${i}`}
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="relative"
+                    >
+                      <span className="absolute -left-[29px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
+                      <p className="font-mono text-xs text-muted-foreground">{entry.time}</p>
+                      <p className="text-sm">{entry.event}</p>
+                    </motion.li>
+                  ))}
+                </ol>
+              </ReportSection>
+            )}
+          </Accordion>
         )}
       </div>
     </AppLayout>

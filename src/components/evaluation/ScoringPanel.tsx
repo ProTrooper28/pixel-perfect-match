@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, Info, Loader2, Lock, Save, Send, Settings2, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { CheckCircle2, Info, Loader2, Lock, Save, Send, Settings2, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Meter, SectionHeading } from "@/components/evaluation/shared";
 import { EASE_OUT } from "@/components/motion/primitives";
 import { aiEvaluationStatus } from "@/services/judging/ai-evaluation.service";
 import { AiVerdictInline, type AiVerdictData } from "@/components/evaluation/AiVerdictPanel";
+import type { ClaimEvidenceStatus } from "@/services/evidence/types";
 import { awardedTotal, percentOf, type CriterionTarget } from "@/lib/evaluation/scoring";
 import { cn } from "@/lib/utils";
 import type {
@@ -55,6 +56,8 @@ export interface ScoringPanelProps {
   onSubmit: () => void;
   evaluators: JudgeEvaluation[];
   judgeId: string;
+  /** Claim-status tally from the evidence run, so scores can reference it. */
+  evidence?: { counts: Record<ClaimEvidenceStatus, number>; total: number } | null;
   /** AI Verdict derived from the submission — shown as a teaser. */
   aiVerdict?: AiVerdictData | null;
   className?: string;
@@ -80,6 +83,7 @@ export function ScoringPanel({
   onSubmit,
   evaluators,
   judgeId,
+  evidence,
   aiVerdict,
   className,
 }: ScoringPanelProps) {
@@ -104,7 +108,9 @@ export function ScoringPanel({
           <div>
             <CardTitle className="text-sm font-medium">Your evaluation</CardTitle>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span>{targets.length} criteria · max {maxScore}</span>
+              <span>
+                {targets.length} criteria · max {maxScore}
+              </span>
               {criteriaSet && (
                 <Link
                   to="/evaluation/criteria"
@@ -221,7 +227,46 @@ export function ScoringPanel({
             );
           })}
         </div>
-
+        {/* Evidence ---------------------------------------------------- */}
+        {evidence && evidence.total > 0 && (
+          <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <SectionHeading>Evidence check</SectionHeading>
+              <a
+                href="#evidence-section"
+                className="text-[11px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                Why?
+              </a>
+            </div>
+            <ul className="mt-1.5 space-y-1 text-[11px]">
+              <li className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Supported</span>
+                <span className="tabular-nums text-success">{evidence.counts.supported}</span>
+              </li>
+              <li className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Partially supported</span>
+                <span className="tabular-nums text-warning">
+                  {evidence.counts.partially_supported}
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Not found in readable sources</span>
+                <span className="tabular-nums">{evidence.counts.not_found}</span>
+              </li>
+              <li className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Could not verify</span>
+                <span className="tabular-nums text-primary">
+                  {evidence.counts.could_not_verify}
+                </span>
+              </li>
+            </ul>
+            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+              {evidence.total} claims checked. “Could not verify” is a gap in the evidence, not a
+              negative finding — do not penalise it as if it were false.
+            </p>
+          </div>
+        )}{" "}
         {/* AI layer ---------------------------------------------------- */}
         {aiVerdict ? (
           <AiVerdictInline verdict={aiVerdict} />
@@ -236,11 +281,11 @@ export function ScoringPanel({
             </div>
             <p className="mt-1 text-[11px] font-medium text-foreground/80">{ai.label}</p>
             <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-              {ai.description} No AI score is generated today.
+              {ai.description} No AI score is generated today — the evidence check above is advisory
+              and never writes your marks.
             </p>
           </div>
         )}
-
         {/* Notes ------------------------------------------------------- */}
         <div>
           <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -261,7 +306,6 @@ export function ScoringPanel({
             Kept separate from the score and never shown to the candidate.
           </p>
         </div>
-
         {/* Recommendation ---------------------------------------------- */}
         <div>
           <SectionHeading className="mb-1.5">Recommendation</SectionHeading>
@@ -287,7 +331,6 @@ export function ScoringPanel({
             })}
           </div>
         </div>
-
         {/* Panel ------------------------------------------------------- */}
         <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
           <SectionHeading className="mb-1.5">Evaluation panel</SectionHeading>
@@ -312,7 +355,6 @@ export function ScoringPanel({
             )}
           </ul>
         </div>
-
         {/* Actions ----------------------------------------------------- */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">

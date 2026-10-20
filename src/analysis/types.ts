@@ -92,6 +92,13 @@ export interface AnalysisInput {
   websiteUrl: string | null;
   notes: string | null;
   attachments: { name: string; size: number; type: string }[];
+  /**
+   * Deck analysis (extracted text + the team's claims) from the review form.
+   * Persisted into `report_data.document_analysis` so the report can show it
+   * and the AI evaluator can later compare the claims against repo/site
+   * evidence. Null when no document was attached or it could not be read.
+   */
+  document?: import("@/services/document/types").DocumentAnalysis | null;
   createdAt: string;
 }
 
