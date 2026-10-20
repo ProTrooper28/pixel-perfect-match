@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SubmissionPreview } from "@/components/evaluation/SubmissionPreview";
 import { ScoringPanel } from "@/components/evaluation/ScoringPanel";
 import { StatusPill } from "@/components/evaluation/shared";
+import { AiVerdictPanel, deriveVerdictFromSubmission } from "@/components/evaluation/AiVerdictPanel";
 import { CATEGORY_META } from "@/lib/evaluation/category";
 import { notify } from "@/lib/toast-messages";
 import { EASE_OUT } from "@/components/motion/primitives";
@@ -168,6 +169,10 @@ function SubmissionDetailView({
   const complete = isEvaluationComplete(scores, targets);
   const submitted = myRecord?.status === "evaluated" || myRecord?.status === "reviewed";
 
+  // Derive AI verdict from the submission's own fields (no LLM required).
+  // useMemo so it does not recompute on every score keystroke.
+  const aiVerdict = useMemo(() => deriveVerdictFromSubmission(detail), [detail]);
+
   const backTo = category === "resume" ? "/evaluation/resume" : "/evaluation/project";
   const listLink = backTo;
 
@@ -326,6 +331,7 @@ function SubmissionDetailView({
           <ScoringPanel
             targets={targets}
             maxScore={criteriaSet.maxScore}
+            criteriaSet={criteriaSet}
             scores={scores}
             onScore={setScore}
             note={note}
@@ -348,9 +354,15 @@ function SubmissionDetailView({
             onSubmit={() => void handleSubmit()}
             evaluators={evaluators}
             judgeId={judge.id}
+            aiVerdict={aiVerdict}
           />
         </div>
       </motion.div>
+
+      {/* AI Verdict full panel — below the two-column grid */}
+      <div className="mt-6 pb-6">
+        <AiVerdictPanel verdict={aiVerdict} />
+      </div>
 
       {/* Mobile quick bar: keep the running total and the way forward in reach. */}
       <div

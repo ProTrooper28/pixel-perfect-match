@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense } from "react";
 import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  Bot,
   CheckCircle2,
   Check,
   CircuitBoard,
@@ -81,6 +82,7 @@ import {
   downloadReportFile,
   reportExportFilename,
 } from "@/lib/report-share";
+import { AiVerdictPanel, deriveVerdictFromReport } from "@/components/evaluation/AiVerdictPanel";
 
 interface ReportLoaderData {
   row: ReportSummary | null;
@@ -139,10 +141,11 @@ function formatDate(value: string | undefined): string {
 const listIcon = "mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary";
 
 /** Sections the page opens by default. */
-const DEFAULT_OPEN_SECTIONS = ["summary", "overview", "risks", "recommendations"];
+const DEFAULT_OPEN_SECTIONS = ["verdict", "summary", "overview", "risks", "recommendations"];
 
 /** Every report section, expanded for printing so nothing is cut off. */
 const ALL_SECTIONS = [
+  "verdict",
   "summary",
   "overview",
   "architecture",
@@ -301,6 +304,7 @@ function Report() {
 
   const status = normalizeReportStatus(reportRow?.status);
   const view = reportData ?? normalizeReportData(reportDataOf(reportRow));
+  const aiVerdict = useMemo(() => deriveVerdictFromReport(view), [view]);
 
   // Fetch the full report (with report_data) after the summary shell renders.
   // Guest rows already carry their payload, so only summary rows hit the network.
@@ -689,12 +693,21 @@ function Report() {
             <LoadingState label="Loading report analysis…" rows={6} />
           </div>
         ) : (
-          <Accordion
+        <Accordion
           type="multiple"
           value={openSections}
           onValueChange={setOpenSections}
           className="surface px-6"
         >
+          <ReportSection
+            value="verdict"
+            title="AI Verdict"
+            icon={<Bot className="h-4 w-4" />}
+            defaultOpen
+          >
+            <AiVerdictPanel verdict={aiVerdict} title="AI Analysis &amp; Pre-Assessment" />
+          </ReportSection>
+
           <ReportSection
             value="summary"
             title="Executive Summary"
