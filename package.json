@@ -1,5 +1,6 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "buildlens",
+  "description": "Evidence-based technical evaluation platform for hackathons and project reviews.",
   "private": true,
   "sideEffects": false,
   "type": "module",

@@ -1,78 +1,126 @@
-# Pixel Perfect Match
+# BuildLens
 
-Implement exactly the screenshot and nothing else
+Evidence-based technical evaluation platform for hackathons and project reviews.
 
-This project was built with [Lovable](https://lovable.dev).
+## What the platform does
 
-## Build with Lovable
+BuildLens turns hackathon submissions into defensible technical decisions. Teams submit a
+project once — a repository link, a deployed URL, a presentation deck and a demo video — and
+the platform reads that material, compares every claim against real evidence, and gives judges
+a structured, sourced evaluation they can score and rank together.
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/a44249fc-e16f-400b-a4c4-f6d63b00f2a4).
+The guiding rule is that missing evidence is never treated as proof that a claim is false. Each
+claim is marked `supported`, `partially_supported`, `not_found` or `could_not_verify`, and the
+reasoning behind every score is visible to the judge.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Key features
 
-## Development
+- **Hackathon management** — create hackathons, share a join code, track submissions and keep
+  judging criteria per event.
+- **Project submission** — a guided submission flow with repository, deployment, deck and demo
+  links, usable by signed-in participants and guests.
+- **GitHub and deployed-project analysis** — public repository inspection (stack, tests,
+  documentation, maintainability, security signals) plus deployed-site checks.
+- **PDF and PPT processing with OCR** — extracted slide/page text and OCR of embedded
+  screenshots and diagrams, so decks become readable evidence.
+- **AI-assisted evaluation** — an OpenAI-compatible evaluation agent that collects evidence,
+  validates its own output against a schema, and returns a verdict with reasoning.
+- **Judge scoring and ranking** — criterion-by-criterion scoring, weighted totals, leaderboards
+  and side-by-side comparison.
+- **Separate hackathon workspaces** — every hackathon has its own submissions, judges,
+  criteria and archives, so events do not leak into each other.
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| UI | React 19, TypeScript, TanStack Router / TanStack Start, TanStack Query |
+| Styling | Tailwind CSS v4, shadcn/ui primitives on Radix UI, Framer Motion, Recharts |
+| Build | Vite 8, Bun |
+| Data & auth | Supabase (Postgres, Auth, Storage) with SQL migrations |
+| Server | TanStack Start server routes (`/api/evaluations`) |
+| AI | OpenAI-compatible chat completions API (configurable base URL and model) |
+| Documents | `pdfjs-dist`, `fflate`, `tesseract.js` in the browser; `pymupdf`, `python-pptx`, Google Cloud Vision in the ingestion service |
+| Ingestion service | Python 3.12, FastAPI, Uvicorn |
+| Tests & quality | Vitest, Testing Library, ESLint, Prettier |
+
+## Local setup
+
+Prerequisites: Bun, Node.js 20 or newer, and a Supabase project.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+cp .env.example .env.local     # fill in your own values
+bun run dev                    # http://localhost:5173
+```
+
+Apply the database schema from `supabase/migrations/` to your Supabase project (for example with
+the Supabase CLI: `supabase db push`).
+
+Useful scripts:
+
+```sh
+bun run dev        # development server
+bun run build      # production build
+bun run test       # unit and component tests
+bun run lint       # ESLint
+bun run format     # Prettier
+bunx tsc -b --noEmit   # type check
+```
+
+The optional document ingestion service lives in `doc-ingestion/`:
+
+```sh
+cd doc-ingestion
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --port 8001
 ```
 
 ## Environment variables
 
-Secrets live only in `.env` / `.env.local` (gitignored — never commit them).
-`.env` and `.env.*` are ignored by Git, and only `.env.example` may be
-committed. The table below documents every variable name; a root
-`.env.example` containing these names (and nothing else) should be created
-from it.
+Values belong in `.env` / `.env.local` (gitignored) or in your deployment's secret store.
+`.env.example` documents names only and must never contain real values.
 
-**Client-safe (browser-exposed via `VITE_` — public values only):**
+Client-safe (exposed to the browser, public values only):
 
 | Name | Purpose |
 | --- | --- |
-| `VITE_SUPABASE_URL` | Supabase project URL (public) |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key (public, protected by RLS) |
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key (protected by row-level security) |
 
-**Server-only (never prefix with `VITE_`, never ship to the browser):**
+Server-only:
 
 | Name | Purpose |
 | --- | --- |
-| `EVAL_AGENT_API_KEY` | LLM API key for the evaluation agent |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key used by server-side persistence |
+| `EVAL_AGENT_API_KEY` | API key for the evaluation model |
 | `EVAL_AGENT_BASE_URL` | OpenAI-compatible endpoint |
-| `EVAL_AGENT_MODEL` | Model id |
-| `EVAL_AGENT_TOKEN` | Optional bearer token gating the evaluation HTTP endpoints |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (server-side persistence) |
-| `DOC_INGESTION_URL` | Document ingestion microservice base URL |
-| `DOC_INGESTION_SERVICE_TOKEN` | Shared token for the ingestion microservice |
+| `EVAL_AGENT_MODEL` | Model identifier |
+| `EVAL_AGENT_TOKEN` | Optional bearer token that gates the evaluation endpoints |
+| `DOC_INGESTION_URL` | Base URL of the document ingestion service |
+| `DOC_INGESTION_SERVICE_TOKEN` | Shared token for the ingestion service |
 
-The Python service under `doc-ingestion/` has its own `doc-ingestion/.env.example`.
+The Python service documents its own variables in `doc-ingestion/.env.example`.
 
-## Evidence layer (AI judge)
+## Architecture
 
-The evaluation agent does not guess: it reads evidence and compares it with the
-team's claims.
+```
+src/
+  routes/         File-based pages plus server endpoints (/api/evaluations)
+  components/     UI grouped by domain (evaluation, hackathons, review, layout, ui)
+  services/       Supabase persistence, judging, ingestion, evaluation agent, evidence layer
+  analysis/       Deterministic repository analysis and scoring
+  repository/     Public repository transport and inspection
+  lib/            Report shaping, scoring helpers, formatting utilities
+supabase/         SQL migrations (schema, judging, document extractions, AI runs)
+doc-ingestion/    FastAPI service for PDF/PPT parsing and OCR
+```
 
-| Path | Role |
-| --- | --- |
-| `src/services/evidence/` | Unified layer: sources, deterministic claim comparison, bundle builder |
-| `src/services/ingestion/` | One ingestor per source (document, website, repository); adding a source means adding an ingestor |
-| `src/services/repository/` + `src/analysis/analyzers/` | The existing public-repo inspection the evidence layer reuses |
-| `src/services/evaluation-agent/` | Pipeline: collect → bundle → model → validate → persist (`/api/evaluations`) |
-| `src/components/evaluation/EvidenceSection.tsx` | Judge-facing "why": sources, claim statuses, final summary |
+A submission flows through the pipeline as: **collect sources → build an evidence bundle →
+compare claims deterministically → ask the model for a validated verdict → persist the run →
+judge review and scoring → report**.
 
-Every claim gets one of four statuses — `supported`, `partially_supported`,
-`not_found`, `could_not_verify`. `not_found` means the readable sources were
-checked and did not show the claim; `could_not_verify` means no source could be
-read. Neither means the claim is false, and missing evidence is never scored as
-if it were. The submitted deck is a claim source, never a verification source.
-
-Runs persist through the agent store (memory in development, `ai_evaluation_runs`
-when `SUPABASE_SERVICE_ROLE_KEY` is set). The judge screen remembers the run id
-per submission, so refreshing re-attaches to the same run instead of re-running
-it, and runs created before evidence bundles still render their score and
-reasoning.
+The evidence layer (`src/services/evidence/` with the ingestors in
+`src/services/ingestion/`) is the single place that decides what counts as proof. The
+submitted deck is a source of claims, never a source of verification.

@@ -15,6 +15,13 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+*.tsbuildinfo
+
+# Local preview/runtime state
+.vly-run/
+
+# Bun is the package manager; npm lockfiles are not used
+package-lock.json
 
 # Environment files (never commit secrets)
 .env
