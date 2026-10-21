@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import "@/components/marketing/cinematic.css";
 import { notify } from "@/lib/toast-messages";
+import { Logo } from "@/components/layout/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { isUserRole, type UserRole } from "@/types/auth";
@@ -141,9 +142,7 @@ function Login() {
       </div>
 
       <header className="loginTop">
-        <Link to="/" className="logo">
-          BuildLens
-        </Link>
+        <Logo to="/" size="lg" onDark />
         <Link to="/" className="navLink">
           ← Back to site
         </Link>

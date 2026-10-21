@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/table";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { EmptyState } from "@/components/state/EmptyState";
+import { BrandMark } from "@/components/brand/BrandLogo";
 import { ErrorState } from "@/components/state/ErrorState";
 import { scoreTone } from "@/components/ScoreRing";
 import { useAuth } from "@/hooks/useAuth";
@@ -250,7 +251,7 @@ function Reports() {
           ) : visible.length === 0 ? (
             <EmptyState
               className="surface"
-              icon={<FileX2 />}
+              icon={q || type !== "all" || status !== "all" ? <FileX2 /> : <BrandMark size="sm" />}
               title={
                 q || type !== "all" || status !== "all" ? "No reports found" : "No reports yet"
               }

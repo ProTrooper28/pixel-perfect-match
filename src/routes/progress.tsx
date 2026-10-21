@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { BrandMark } from "@/components/brand/BrandLogo";
 import { EmptyState } from "@/components/state/EmptyState";
 import { ErrorState } from "@/components/state/ErrorState";
 import { useAuth } from "@/hooks/useAuth";
@@ -448,8 +449,14 @@ function ProgressPage() {
   if (loadState === "loading") {
     return (
       <AppLayout title="Loading investigation…" subtitle="Fetching the submitted project.">
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading investigation…
+        <div
+          className="flex flex-col items-center justify-center gap-4 py-16 text-sm text-muted-foreground"
+          role="status"
+        >
+          <BrandMark size="xl" />
+          <span className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading investigation…
+          </span>
         </div>
       </AppLayout>
     );

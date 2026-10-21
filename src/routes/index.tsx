@@ -5,6 +5,7 @@ import { ArrowRight, Gavel, UserRound } from "lucide-react";
 import "@/components/marketing/cinematic.css";
 import "@/components/marketing/neon-hero.css";
 import TechText from "@/components/marketing/TechText";
+import { Logo } from "@/components/layout/Logo";
 import { useAuth } from "@/hooks/useAuth";
 
 const NAV = [
@@ -167,9 +168,7 @@ function Landing() {
     <div className="neon-page">
       {/* Header — floats over the hero (z 60, stays above the menu overlay) */}
       <header className="hero__nav neon-nav">
-        <Link to="/" className="logo">
-          BuildLens
-        </Link>
+        <Logo to="/" onDark />
         <div className="hero__navRight">
           <nav className="navLinks" aria-label="Main">
             {NAV.map((n) => (

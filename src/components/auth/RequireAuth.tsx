@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
+import { BrandMark } from "@/components/brand/BrandLogo";
 
 /**
  * Gate a subtree behind authentication (or guest mode).
@@ -26,11 +27,12 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (isLoading) {
     return (
       <div
-        className="grid min-h-[60vh] place-items-center"
+        className="flex min-h-[60vh] flex-col items-center justify-center gap-4"
         role="status"
         aria-label="Checking session"
       >
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <BrandMark size="lg" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }

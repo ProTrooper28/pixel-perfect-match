@@ -144,7 +144,7 @@ function Onboarding() {
   return (
     <div className="onboarding">
       <header className="onboarding__top">
-        <Logo to="/" />
+        <Logo to="/" onDark />
         <Link to="/login" search={{ role }} className="ob-top-link">
           Back to sign in
         </Link>

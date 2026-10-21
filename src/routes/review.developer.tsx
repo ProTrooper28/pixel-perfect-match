@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Loader2 } from "lucide-react";
+import { BrandMark } from "@/components/brand/BrandLogo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -149,8 +150,13 @@ function ReviewDeveloperPage() {
   if (authLoading || (!user && !isGuest)) {
     return (
       <AppLayout title="Developer Reviews" crumbs={[{ label: "Developer Reviews" }]}>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div
+          className="flex h-64 flex-col items-center justify-center gap-4"
+          role="status"
+          aria-label="Loading reviews"
+        >
+          <BrandMark size="xl" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       </AppLayout>
     );

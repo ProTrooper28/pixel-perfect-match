@@ -103,6 +103,18 @@ Server-only:
 
 The Python service documents its own variables in `doc-ingestion/.env.example`.
 
+## Brand assets
+
+The official BuildLens mark lives in `src/components/brand/BrandLogo.tsx` (`BrandMark` for tight
+spaces, `BrandLogo` for the full mark-plus-wordmark lockup). It renders
+`public/brand/buildlens-mark.svg`; favicons, PWA icons and the Open Graph card are generated from
+the same artwork:
+
+```sh
+node scripts/gen-brand-assets.mjs           # rebuild favicon, icons and og-image
+node scripts/gen-brand-assets.mjs --ascii   # preview the mark in the terminal
+```
+
 ## Architecture
 
 ```

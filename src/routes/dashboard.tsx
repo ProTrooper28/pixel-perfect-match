@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { EmptyState } from "@/components/state/EmptyState";
+import { BrandMark } from "@/components/brand/BrandLogo";
 import { ErrorState } from "@/components/state/ErrorState";
 import { CardRowSkeleton } from "@/components/state/skeletons";
 import { scoreTone } from "@/components/ScoreRing";
@@ -497,7 +498,7 @@ function Dashboard() {
             />
           ) : recent.length === 0 ? (
             <EmptyState
-              icon={<History />}
+              icon={<BrandMark size="sm" />}
               title="No reports yet"
               description="Once you review a project or developer, reports appear here."
               action={

@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { BrandMark } from "@/components/brand/BrandLogo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -266,7 +267,7 @@ export function EvidencePanel({
         {/* Idle: explain what a run will read — empty state, not a dead card. */}
         {phase === "idle" && (
           <div className="rounded-lg border border-dashed border-border/70 px-3 py-6 text-center">
-            <ScanSearch className="mx-auto h-5 w-5 text-muted-foreground" aria-hidden />
+            <BrandMark size="sm" className="mx-auto" />
             <p className="mt-2 text-sm font-medium">No evidence check has been run yet</p>
             <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
               {isProject

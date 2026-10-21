@@ -51,6 +51,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { BrandMark } from "@/components/brand/BrandLogo";
 import { ScoreRing, scoreTone } from "@/components/ScoreRing";
 import { ReportSection } from "@/components/report/ReportSection";
 import { ErrorState } from "@/components/state/ErrorState";
@@ -465,8 +466,14 @@ function Report() {
   if (!reportRow && !guestResolved) {
     return (
       <ReportState title="Loading report…" subtitle="Fetching the stored analysis.">
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading report…
+        <div
+          className="flex flex-col items-center justify-center gap-4 py-16 text-sm text-muted-foreground"
+          role="status"
+        >
+          <BrandMark size="xl" />
+          <span className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading report…
+          </span>
         </div>
       </ReportState>
     );
